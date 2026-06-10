@@ -1,0 +1,18 @@
+name: Dashboard CI
+
+on:
+  push:
+    paths:
+      - 'dashboard/**'
+  pull_request:
+    paths:
+      - 'dashboard/**'
+
+# Placeholder — update this workflow once the dashboard is scaffolded.
+jobs:
+  placeholder:
+    name: Placeholder (dashboard not yet scaffolded)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Dashboard CI placeholder — add build/test steps once the dashboard is scaffolded."

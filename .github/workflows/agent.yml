@@ -1,0 +1,56 @@
+name: Agent CI
+
+on:
+  push:
+    paths:
+      - 'agent/**'
+  pull_request:
+    paths:
+      - 'agent/**'
+
+jobs:
+  build-and-test:
+    name: Build & Test (Go)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+
+      - name: Download dependencies
+        working-directory: agent
+        run: go mod download
+
+      - name: Build
+        working-directory: agent
+        run: go build ./...
+
+      - name: Test
+        working-directory: agent
+        run: go test ./...
+
+  build-windows:
+    name: Build Windows Binary
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+
+      - name: Build Windows binary
+        working-directory: agent
+        run: go build -o dist/rmm-agent.exe .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rmm-agent-windows
+          path: agent/dist/rmm-agent.exe

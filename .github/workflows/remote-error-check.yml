@@ -1,0 +1,36 @@
+name: Remote Error Check CI
+
+on:
+  push:
+    paths:
+      - 'remote-error-check/**'
+  pull_request:
+    paths:
+      - 'remote-error-check/**'
+
+jobs:
+  lint-and-test:
+    name: Lint & Test (Node.js)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: remote-error-check/package.json
+
+      - name: Install dependencies
+        working-directory: remote-error-check
+        run: npm ci
+
+      - name: Lint
+        working-directory: remote-error-check
+        run: npm run lint
+
+      - name: Test
+        working-directory: remote-error-check
+        run: npm test

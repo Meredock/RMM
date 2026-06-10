@@ -1,6 +1,0 @@
-{
-  "dashboard_url": "http://YOUR-DASHBOARD-IP:3000",
-  "registration_secret": "YOUR-REGISTRATION-SECRET",
-  "device_name": "",
-  "interval_seconds": 30
-}
