@@ -6,7 +6,7 @@ export async function POST() {
   response.cookies.set(SESSION_COOKIE, "", {
     maxAge: 0,
     path: "/",
-    ...(process.env.NODE_ENV === "production" && { domain: ".fixsmith.com.au" }),
+    domain: ".fixsmith.com.au",
   });
   return response;
 }
