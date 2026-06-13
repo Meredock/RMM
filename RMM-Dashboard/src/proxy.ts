@@ -5,7 +5,13 @@ import { getSessionFromRequest } from "@/lib/auth";
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/agent/"];
 
 async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, origin } = request.nextUrl;
+  const hostname = request.headers.get("host") ?? "";
+
+  // portal.fixsmith.com.au root → send to portal page
+  if (hostname.startsWith("portal.") && pathname === "/") {
+    return NextResponse.redirect(new URL("/portal", origin));
+  }
 
   // Allow agent API routes and auth routes without session
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
