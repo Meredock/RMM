@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: rmm-dashboard
+    runtime: node
+    rootDir: RMM-Dashboard
+    buildCommand: npm install && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: NODE_ENV=production npx tsx server.ts
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: DASHBOARD_PASSWORD
+        sync: false
+      - key: AGENT_REGISTRATION_SECRET
+        sync: false
