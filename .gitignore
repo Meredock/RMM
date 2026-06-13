@@ -1,0 +1,19 @@
+# Compiled binaries
+*.exe
+
+# Logs
+*.log
+
+# Node modules
+node_modules/
+
+# Deployment archives
+*.zip
+
+# Environment files
+.env
+.env*.local
+
+# OS files
+.DS_Store
+Thumbs.db

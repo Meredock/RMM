@@ -1,0 +1,39 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const commands = await prisma.command.findMany({
+    where: { deviceId: id },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+
+  return NextResponse.json(commands);
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  const device = await prisma.device.findUnique({ where: { id } });
+  if (!device) {
+    return NextResponse.json({ error: "Device not found" }, { status: 404 });
+  }
+
+  const { command } = await req.json();
+  if (!command?.trim()) {
+    return NextResponse.json({ error: "command is required" }, { status: 400 });
+  }
+
+  const cmd = await prisma.command.create({
+    data: { deviceId: id, command: command.trim() },
+  });
+
+  return NextResponse.json(cmd, { status: 201 });
+}

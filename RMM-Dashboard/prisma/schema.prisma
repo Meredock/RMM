@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Device {
+  id           String    @id @default(cuid())
+  name         String
+  hostname     String
+  platform     String    @default("unknown")
+  osVersion    String?
+  apiKey       String    @unique @default(cuid())
+  isOnline     Boolean   @default(false)
+  lastSeen     DateTime?
+  ipAddress    String?
+  agentVersion String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  metrics         Metric[]
+  commands        Command[]
+  alerts          Alert[]
+  backupSchedules BackupSchedule[]
+  backupRuns      BackupRun[]
+
+  @@index([isOnline])
+}
+
+model Metric {
+  id          String   @id @default(cuid())
+  deviceId    String
+  timestamp   DateTime @default(now())
+  cpuPercent  Float
+  ramPercent  Float
+  ramUsedMb   Float
+  ramTotalMb  Float
+  diskPercent Float
+  diskUsedGb  Float
+  diskTotalGb Float
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, timestamp])
+}
+
+model Command {
+  id          String        @id @default(cuid())
+  deviceId    String
+  command     String
+  status      CommandStatus @default(PENDING)
+  output      String?
+  exitCode    Int?
+  createdAt   DateTime      @default(now())
+  executedAt  DateTime?
+  completedAt DateTime?
+
+  device    Device     @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  backupRun BackupRun?
+
+  @@index([deviceId, status])
+}
+
+enum CommandStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  TIMEOUT
+}
+
+model Alert {
+  id         String        @id @default(cuid())
+  deviceId   String?
+  type       AlertType
+  message    String
+  severity   AlertSeverity
+  isResolved Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  resolvedAt DateTime?
+
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([isResolved, createdAt])
+  @@index([deviceId])
+}
+
+enum AlertType {
+  DEVICE_OFFLINE
+  HIGH_CPU
+  HIGH_RAM
+  HIGH_DISK
+  COMMAND_FAILED
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model AlertRule {
+  id        String        @id @default(cuid())
+  deviceId  String?
+  type      AlertType
+  threshold Float?
+  isEnabled Boolean       @default(true)
+  severity  AlertSeverity @default(WARNING)
+  createdAt DateTime      @default(now())
+}
+
+model BackupJob {
+  id          String   @id @default(cuid())
+  name        String
+  sources     String[]
+  exclude     String[]
+  destination String?
+  maxBytes    Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  schedules BackupSchedule[]
+  runs      BackupRun[]
+}
+
+model BackupSchedule {
+  id              String    @id @default(cuid())
+  jobId           String
+  deviceId        String
+  intervalMinutes Int
+  enabled         Boolean   @default(true)
+  lastRunAt       DateTime?
+  nextRunAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  job    BackupJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  device Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  runs   BackupRun[]
+}
+
+model BackupRun {
+  id          String          @id @default(cuid())
+  jobId       String
+  scheduleId  String?
+  deviceId    String
+  commandId   String?         @unique
+  status      BackupRunStatus @default(PENDING)
+  archivePath String?
+  files       Int?
+  bytes       Float?
+  skipped     Int?
+  error       String?
+  startedAt   DateTime        @default(now())
+  completedAt DateTime?
+
+  job      BackupJob       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  schedule BackupSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  device   Device          @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  command  Command?        @relation(fields: [commandId], references: [id], onDelete: SetNull)
+}
+
+enum BackupRunStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
