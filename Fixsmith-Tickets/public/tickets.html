@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fixsmith Tickets</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <div class="bg-shape bg-shape-a"></div>
+    <div class="bg-shape bg-shape-b"></div>
+
+    <main class="layout">
+      <header class="hero">
+        <p class="eyebrow">Ticketing</p>
+        <h1>Repair Tickets</h1>
+        <p class="subtitle">Create, update, and track tickets. Open any ticket for its own correspondence page.</p>
+      </header>
+
+      <nav class="section-nav panel compact">
+        <a class="nav-chip link-chip" href="/dashboard">Dashboard</a>
+        <a class="nav-chip link-chip" href="/customers">Customers</a>
+        <a class="nav-chip link-chip" href="/inventory">Inventory</a>
+        <a class="nav-chip link-chip" href="/calendar">Calendar</a>
+        <a class="nav-chip link-chip" href="/reports">Reports</a>
+        <a class="nav-chip link-chip" href="/invoices">Invoices</a>
+        <button type="button" id="ticketsRefreshBtn" class="ghost push-right">Refresh</button>
+      </nav>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2 id="ticketFormTitle">New Repair Ticket</h2>
+          <button type="button" id="ticketCancelBtn" class="ghost hidden">Cancel Edit</button>
+        </div>
+        <form id="ticketForm" class="ticket-form">
+          <input type="hidden" name="id" />
+          <label>Customer
+            <select name="customerId" id="ticketCustomerSelect" required></select>
+          </label>
+          <label>Correspondence Email<input name="correspondenceEmail" id="ticketCorrespondenceEmail" type="email" placeholder="client@example.com" /></label>
+          <label>Device Type<input name="deviceType" required /></label>
+          <label>Brand<input name="brand" required /></label>
+          <label>Model<input name="model" required /></label>
+          <label>Due Date<input name="dueDate" type="date" required /></label>
+          <label>Serial Number<input name="serialNumber" /></label>
+          <label>Status
+            <select name="status" id="ticketStatusSelect"></select>
+          </label>
+          <label class="span-2">Issue<textarea name="issue" rows="3" required></textarea></label>
+          <label class="span-2">Notes<textarea name="notes" rows="3"></textarea></label>
+          <label class="span-2">Work Completed Summary<textarea name="workCompletedSummary" rows="3"></textarea></label>
+
+          <div class="span-2 ticket-labour-builder">
+            <div class="section-head compact-head">
+              <h3>Labour Entries</h3>
+              <small>Queue labour now to save with this ticket.</small>
+            </div>
+            <div class="ticket-labour-form">
+              <label>Minutes<input id="ticketLabourMinutes" type="number" min="1" step="1" /></label>
+              <label>Logged At<input id="ticketLabourLoggedAt" type="datetime-local" /></label>
+              <button type="button" id="ticketLabourAddBtn" class="ghost">Add Labour Entry</button>
+            </div>
+            <div class="table-wrap compact-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Minutes</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="ticketDraftLabourRows"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <button type="submit" id="ticketSubmitBtn">Create Ticket</button>
+        </form>
+        <p id="ticketMessage" class="message"></p>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>Labour Log</h2>
+          <small id="labourTicketLabel">Select a ticket to log labour.</small>
+        </div>
+        <form id="labourForm" class="ticket-form">
+          <input type="hidden" name="ticketId" />
+          <input type="hidden" name="labourEntryId" />
+          <label>Minutes Spent<input name="minutes" type="number" min="1" required /></label>
+          <label>Logged At<input name="loggedAt" type="datetime-local" /></label>
+          <label class="span-2">Description<textarea name="note" rows="2" placeholder="Describe the work completed"></textarea></label>
+          <button type="submit" id="labourSubmitBtn">Add Labour Entry</button>
+        </form>
+        <p id="labourMessage" class="message"></p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Minutes</th>
+                <th>Description</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="labourRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Tickets</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Device</th>
+                <th>Issue</th>
+                <th>Due</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ticketRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/assets/tickets.js"></script>
+  </body>
+</html>

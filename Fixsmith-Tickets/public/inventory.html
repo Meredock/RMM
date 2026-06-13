@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fixsmith Inventory</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <div class="bg-shape bg-shape-a"></div>
+    <div class="bg-shape bg-shape-b"></div>
+
+    <main class="layout">
+      <header class="hero">
+        <p class="eyebrow">Inventory Operations</p>
+        <h1>Inventory & Stock Control</h1>
+        <p class="subtitle">Track stock levels, reorder thresholds, and item locations from one dedicated inventory workspace.</p>
+      </header>
+
+      <nav class="section-nav panel compact">
+        <a class="nav-chip link-chip" href="/dashboard">Back to Dashboard</a>
+        <a class="nav-chip link-chip" href="/tickets">Tickets</a>
+        <a class="nav-chip link-chip" href="/customers">Customers</a>
+        <a class="nav-chip link-chip" href="/calendar">Calendar</a>
+        <a class="nav-chip link-chip" href="/reports">Reports</a>
+        <a class="nav-chip link-chip" href="/invoices">Invoices</a>
+      </nav>
+
+      <section class="panel metrics" id="inventoryMetrics">
+        <h2>Inventory Overview</h2>
+        <div class="metric-grid">
+          <article>
+            <span class="metric-label">Total Items</span>
+            <strong id="metricInventoryCount">-</strong>
+          </article>
+          <article>
+            <span class="metric-label">Low Stock Items</span>
+            <strong id="metricLowStockCount">-</strong>
+          </article>
+          <article>
+            <span class="metric-label">Units On Hand</span>
+            <strong id="metricUnitsOnHand">-</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2 id="inventoryFormTitle">Add Inventory Item</h2>
+          <button type="button" id="inventoryCancelBtn" class="ghost hidden">Cancel Edit</button>
+        </div>
+        <form id="inventoryForm" class="ticket-form">
+          <input type="hidden" name="id" />
+          <label>Item Name<input name="name" required /></label>
+          <label>Category<input name="category" required /></label>
+          <label>SKU<input name="sku" required /></label>
+          <label>Unit Cost<input name="unitCost" type="number" min="0" step="0.01" required /></label>
+          <label>Location<input name="location" required /></label>
+          <label>Quantity<input name="quantity" type="number" min="0" required /></label>
+          <label>Reorder Level<input name="reorderLevel" type="number" min="0" required /></label>
+          <label class="span-2">Notes<textarea name="notes" rows="3"></textarea></label>
+          <button type="submit" id="inventorySubmitBtn">Create Inventory Item</button>
+        </form>
+        <p id="inventoryMessage" class="message"></p>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>Stock Directory</h2>
+          <button id="refreshInventoryBtn" type="button" class="ghost">Refresh</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Stock</th>
+                <th>Cost</th>
+                <th>Location</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/assets/inventory.js"></script>
+  </body>
+</html>

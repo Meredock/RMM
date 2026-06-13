@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fixsmith Invoices</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <div class="bg-shape bg-shape-a"></div>
+    <div class="bg-shape bg-shape-b"></div>
+
+    <main class="layout" id="invoiceRoot">
+      <header class="hero">
+        <p class="eyebrow">Billing</p>
+        <h1>Ticket Invoices</h1>
+        <p class="subtitle">Select a ticket and generate a printable invoice that includes work completed and labour logs.</p>
+      </header>
+
+      <nav class="section-nav panel compact invoice-controls">
+        <a class="nav-chip link-chip" href="/dashboard">Dashboard</a>
+        <a class="nav-chip link-chip" href="/tickets">Tickets</a>
+        <a class="nav-chip link-chip" href="/calendar">Calendar</a>
+        <a class="nav-chip link-chip" href="/reports">Reports</a>
+      </nav>
+
+      <section class="panel invoice-controls">
+        <div class="invoice-filters">
+          <label>Ticket
+            <select id="invoiceTicketSelect"></select>
+          </label>
+          <label>Labour Rate (per hour)
+            <input id="invoiceLabourRate" type="number" min="0" step="0.01" value="95" />
+          </label>
+          <label>Inventory Item
+            <select id="invoiceInventorySelect"></select>
+          </label>
+          <label>Quantity
+            <input id="invoiceInventoryQty" type="number" min="1" step="1" value="1" />
+          </label>
+          <button id="invoiceAddPartBtn" type="button" class="ghost">Add Item To Ticket</button>
+          <button id="invoiceGenerateBtn" type="button">Generate Invoice</button>
+          <button id="invoicePrintBtn" type="button" class="ghost">Print Invoice</button>
+        </div>
+        <p id="invoiceMessage" class="message"></p>
+      </section>
+
+      <section class="panel invoice-print-area" id="invoiceOutput">
+        <div class="invoice-header">
+          <h2>Fixsmith Service Invoice</h2>
+          <p id="invoiceNumber">Invoice #: -</p>
+          <p id="invoiceIssuedAt">Issued: -</p>
+        </div>
+
+        <div class="metric-grid">
+          <article>
+            <span class="metric-label">Ticket</span>
+            <strong id="invoiceTicketId">-</strong>
+          </article>
+          <article>
+            <span class="metric-label">Customer</span>
+            <strong id="invoiceCustomer">-</strong>
+          </article>
+          <article>
+            <span class="metric-label">Status</span>
+            <strong id="invoiceStatus">-</strong>
+          </article>
+        </div>
+
+        <section class="report-section">
+          <h3>Job Details</h3>
+          <p id="invoiceDevice"></p>
+          <p id="invoiceIssue"></p>
+          <p id="invoiceWorkSummary"></p>
+        </section>
+
+        <section class="report-section">
+          <h3>Labour Log</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Logged At</th>
+                  <th>Minutes</th>
+                  <th>Hours</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody id="invoiceLabourRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="report-section">
+          <h3>Parts Used</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Unit Cost</th>
+                  <th>Line Total</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="invoicePartsRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="report-section">
+          <h3>Totals</h3>
+          <ul class="status-breakdown">
+            <li><strong>Total Labour Hours</strong>: <span id="invoiceTotalHours">0.00</span></li>
+            <li><strong>Labour Charge</strong>: $<span id="invoiceLabourCharge">0.00</span></li>
+            <li><strong>Parts Total</strong>: $<span id="invoicePartsValue">0.00</span></li>
+            <li><strong>Invoice Total</strong>: $<span id="invoiceGrandTotal">0.00</span></li>
+          </ul>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="/assets/invoices.js"></script>
+  </body>
+</html>

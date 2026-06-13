@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fixsmith Ticket</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <div class="bg-shape bg-shape-a"></div>
+    <div class="bg-shape bg-shape-b"></div>
+
+    <main class="layout">
+      <header class="hero">
+        <p class="eyebrow">Ticket Detail</p>
+        <h1 id="ticketTitle">Ticket</h1>
+        <p class="subtitle" id="ticketSubtitle">Review work, update correspondence email, and send client emails.</p>
+      </header>
+
+      <nav class="section-nav panel compact">
+        <a class="nav-chip link-chip" href="/tickets">Back to Tickets</a>
+        <a class="nav-chip link-chip" href="/dashboard">Dashboard</a>
+        <a class="nav-chip link-chip" id="openInvoiceLink" href="/invoices">Invoices</a>
+      </nav>
+
+      <section class="panel">
+        <h2>Ticket Summary</h2>
+        <ul class="status-breakdown">
+          <li><strong>ID</strong>: <span id="detailId">-</span></li>
+          <li><strong>Status</strong>: <span id="detailStatus">-</span></li>
+          <li><strong>Due Date</strong>: <span id="detailDue">-</span></li>
+          <li><strong>Customer</strong>: <span id="detailCustomer">-</span></li>
+          <li><strong>Device</strong>: <span id="detailDevice">-</span></li>
+        </ul>
+        <p id="detailIssue"></p>
+        <p id="detailWork"></p>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>Client Correspondence</h2>
+          <button type="button" class="ghost" id="saveEmailBtn">Save Email</button>
+        </div>
+        <form id="mailForm" class="ticket-form">
+          <label class="span-2">Client Email
+            <input id="detailEmail" type="email" placeholder="client@example.com" required />
+          </label>
+          <label class="span-2">Subject
+            <input id="mailSubject" />
+          </label>
+          <label class="span-2">Message
+            <textarea id="mailBody" rows="7"></textarea>
+          </label>
+          <label>Labour Rate
+            <input id="invoiceLabourRate" type="number" min="0" step="0.01" value="95" />
+          </label>
+          <button type="button" id="sendMailBtn">Send Correspondence</button>
+          <button type="button" id="sendInvoiceBtn" class="ghost">Send Invoice Email</button>
+        </form>
+        <p class="message" id="ticketMessage"></p>
+      </section>
+    </main>
+
+    <script type="module" src="/assets/ticket.js"></script>
+  </body>
+</html>
