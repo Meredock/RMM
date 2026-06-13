@@ -7,7 +7,7 @@ import { Monitor } from "lucide-react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/portal";
 
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -88,8 +88,8 @@ export default function LoginPage() {
               <Monitor className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Fixsmith RMM</h1>
-          <p className="text-muted-foreground text-sm mt-1">Remote Monitoring & Management</p>
+          <h1 className="text-2xl font-bold text-foreground">Fixsmith Suite</h1>
+          <p className="text-muted-foreground text-sm mt-1">Sign in to continue</p>
         </div>
 
         <Suspense fallback={<div className="bg-card border border-border rounded-lg p-6 h-32 animate-pulse" />}>
