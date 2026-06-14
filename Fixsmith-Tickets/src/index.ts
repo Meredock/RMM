@@ -194,7 +194,7 @@ const ROUTE_MAP: Record<string, string> = {
 const MAX_BODY_BYTES = 1_048_576;
 
 function nowIso(): string {
-  return new Date().toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
+  return new Date().toISOString();
 }
 
 function dueDateFromNow(daysAhead: number): string {
