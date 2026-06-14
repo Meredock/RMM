@@ -21,7 +21,7 @@ const APPS = [
     href: "https://tickets.fixsmith.com.au",
     color: "from-orange-600/20 to-orange-500/10 border-orange-500/30 hover:border-orange-400/60",
     iconColor: "text-orange-400",
-    badge: "Coming soon",
+    badge: "Live",
   },
 ];
 
