@@ -75,6 +75,18 @@ func (c *Client) connect() error {
 	}
 	log.Printf("[ws] Authenticated. Waiting for sessions...")
 
+	// Keepalive: send a ping every 30s so Render's proxy doesn't kill idle connections.
+	// WriteControl is safe to call concurrently with other writes.
+	go func() {
+		t := time.NewTicker(30 * time.Second)
+		defer t.Stop()
+		for range t.C {
+			if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)); err != nil {
+				return
+			}
+		}
+	}()
+
 	// Active sessions: sessionId → channel to send to handler
 	type session struct {
 		ch chan Msg
