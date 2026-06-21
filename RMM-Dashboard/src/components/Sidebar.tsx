@@ -8,6 +8,7 @@ import {
   Server,
   Bell,
   Archive,
+  Building2,
   LogOut,
   ChevronRight,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/devices", label: "Devices", icon: Server },
+  { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/backups", label: "Backup", icon: Archive },
   { href: "/alerts", label: "Alerts", icon: Bell },
 ];

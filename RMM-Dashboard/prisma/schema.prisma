@@ -18,9 +18,11 @@ model Device {
   lastSeen     DateTime?
   ipAddress    String?
   agentVersion String?
+  companyId    String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  company         Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
   metrics         Metric[]
   commands        Command[]
   alerts          Alert[]
@@ -28,6 +30,16 @@ model Device {
   backupRuns      BackupRun[]
 
   @@index([isOnline])
+  @@index([companyId])
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  devices Device[]
 }
 
 model Metric {
