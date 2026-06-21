@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/meredock/rmm-agent/internal/avscan"
 	"github.com/meredock/rmm-agent/internal/backup"
 )
 
@@ -25,6 +26,22 @@ func Run(command string) Result {
 		if err != nil {
 			return Result{
 				Output:   err.Error(),
+				ExitCode: 1,
+				Success:  false,
+			}
+		}
+		return Result{
+			Output:   output,
+			ExitCode: 0,
+			Success:  true,
+		}
+	}
+
+	if arg, ok := avscanArg(command); ok {
+		output, err := avscan.Run(arg)
+		if err != nil {
+			return Result{
+				Output:   output + "\n" + err.Error(),
 				ExitCode: 1,
 				Success:  false,
 			}
@@ -80,6 +97,19 @@ func backupPayload(command string) (string, bool) {
 			payload := strings.TrimSpace(strings.TrimPrefix(command, prefix))
 			return payload, payload != ""
 		}
+	}
+	return "", false
+}
+
+// avscanArg recognises "avscan [quick|full]" commands and returns the scan-type
+// argument (empty meaning the default quick scan).
+func avscanArg(command string) (string, bool) {
+	command = strings.TrimSpace(command)
+	if command == "avscan" {
+		return "", true
+	}
+	if strings.HasPrefix(command, "avscan ") {
+		return strings.TrimSpace(strings.TrimPrefix(command, "avscan ")), true
 	}
 	return "", false
 }
