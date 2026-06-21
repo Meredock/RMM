@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import {
   ChevronLeft, Plus, Play, Trash2, Clock, CheckCircle2,
-  XCircle, Loader2, Archive, RefreshCw, ToggleLeft, ToggleRight, X,
+  XCircle, Loader2, Archive, RefreshCw, ToggleLeft, ToggleRight, X, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -100,6 +100,7 @@ export default function BackupsPage() {
   const [loading, setLoading] = useState(true);
   const [runningJobs, setRunningJobs] = useState<Set<string>>(new Set());
   const [showCreate, setShowCreate] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"jobs" | "history">("jobs");
 
   // Create form state
@@ -184,7 +185,41 @@ export default function BackupsPage() {
     [fetchData]
   );
 
-  const createJob = useCallback(
+  const resetForm = useCallback(() => {
+    setFormName("");
+    setFormSources("");
+    setFormExclude("");
+    setFormDest("");
+    setFormStorage("LOCAL");
+    setFormBucket("");
+    setFormPrefix("");
+    setFormRegion("");
+    setFormEndpoint("");
+    setFormSchedule(0);
+  }, []);
+
+  const closeForm = useCallback(() => {
+    setShowCreate(false);
+    setEditingId(null);
+    resetForm();
+  }, [resetForm]);
+
+  const startEdit = useCallback((job: BackupJob) => {
+    setEditingId(job.id);
+    setFormName(job.name);
+    setFormSources(job.sources.join("\n"));
+    setFormExclude(job.exclude.join("\n"));
+    setFormDest(job.destination ?? "");
+    setFormStorage(job.storageType);
+    setFormBucket(job.s3Bucket ?? "");
+    setFormPrefix(job.s3Prefix ?? "");
+    setFormRegion(job.s3Region ?? "");
+    setFormEndpoint(job.s3Endpoint ?? "");
+    setFormSchedule(0); // schedules are managed separately, per device
+    setShowCreate(true);
+  }, []);
+
+  const saveJob = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setFormSaving(true);
@@ -193,43 +228,43 @@ export default function BackupsPage() {
         const exclude = formExclude.split("\n").map((s) => s.trim()).filter(Boolean);
         if (!formName.trim() || sources.length === 0) return;
 
-        const res = await fetch("/api/backup/jobs", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: formName.trim(),
-            sources,
-            exclude,
-            storageType: formStorage,
-            destination: formStorage === "LOCAL" ? formDest.trim() || null : null,
-            s3Bucket: formStorage === "S3" ? formBucket.trim() : undefined,
-            s3Prefix: formStorage === "S3" ? formPrefix.trim() : undefined,
-            s3Region: formStorage === "S3" ? formRegion.trim() : undefined,
-            s3Endpoint: formStorage === "S3" ? formEndpoint.trim() : undefined,
-          }),
-        });
-        if (!res.ok) return;
-        const job: BackupJob = await res.json();
+        const payload = {
+          name: formName.trim(),
+          sources,
+          exclude,
+          storageType: formStorage,
+          destination: formStorage === "LOCAL" ? formDest.trim() || null : null,
+          s3Bucket: formStorage === "S3" ? formBucket.trim() : undefined,
+          s3Prefix: formStorage === "S3" ? formPrefix.trim() : undefined,
+          s3Region: formStorage === "S3" ? formRegion.trim() : undefined,
+          s3Endpoint: formStorage === "S3" ? formEndpoint.trim() : undefined,
+        };
 
-        if (formSchedule > 0) {
-          await fetch(`/api/backup/jobs/${job.id}/schedules`, {
+        if (editingId) {
+          const res = await fetch(`/api/backup/jobs/${editingId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) return;
+        } else {
+          const res = await fetch("/api/backup/jobs", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ deviceId: id, intervalMinutes: formSchedule }),
+            body: JSON.stringify(payload),
           });
+          if (!res.ok) return;
+          const job: BackupJob = await res.json();
+          if (formSchedule > 0) {
+            await fetch(`/api/backup/jobs/${job.id}/schedules`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ deviceId: id, intervalMinutes: formSchedule }),
+            });
+          }
         }
 
-        setFormName("");
-        setFormSources("");
-        setFormExclude("");
-        setFormDest("");
-        setFormStorage("LOCAL");
-        setFormBucket("");
-        setFormPrefix("");
-        setFormRegion("");
-        setFormEndpoint("");
-        setFormSchedule(0);
-        setShowCreate(false);
+        closeForm();
         await fetchData();
       } finally {
         setFormSaving(false);
@@ -237,6 +272,7 @@ export default function BackupsPage() {
     },
     [
       id,
+      editingId,
       formName,
       formSources,
       formExclude,
@@ -247,6 +283,7 @@ export default function BackupsPage() {
       formRegion,
       formEndpoint,
       formSchedule,
+      closeForm,
       fetchData,
     ]
   );
@@ -268,7 +305,7 @@ export default function BackupsPage() {
           <Button variant="ghost" size="icon" onClick={fetchData} className="h-7 w-7">
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" onClick={() => setShowCreate(true)} className="h-7 text-xs gap-1">
+          <Button size="sm" onClick={() => { closeForm(); setShowCreate(true); }} className="h-7 text-xs gap-1">
             <Plus className="h-3.5 w-3.5" /> New Job
           </Button>
         </div>
@@ -302,12 +339,12 @@ export default function BackupsPage() {
             {showCreate && (
               <div className="bg-card border border-border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold">New Backup Job</h3>
-                  <button onClick={() => setShowCreate(false)} className="text-muted-foreground hover:text-foreground">
+                  <h3 className="text-sm font-semibold">{editingId ? "Edit Backup Job" : "New Backup Job"}</h3>
+                  <button onClick={closeForm} className="text-muted-foreground hover:text-foreground">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <form onSubmit={createJob} className="space-y-3">
+                <form onSubmit={saveJob} className="space-y-3">
                   <div>
                     <label className="text-xs text-muted-foreground block mb-1">Job Name</label>
                     <input
@@ -412,25 +449,29 @@ export default function BackupsPage() {
                         </div>
                       )}
 
-                      <label className="text-xs text-muted-foreground block mt-3 mb-1">Schedule</label>
-                      <select
-                        value={formSchedule}
-                        onChange={(e) => setFormSchedule(Number(e.target.value))}
-                        className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                      >
-                        <option value={0}>No schedule (manual only)</option>
-                        {INTERVALS.map((i) => (
-                          <option key={i.minutes} value={i.minutes}>{i.label}</option>
-                        ))}
-                      </select>
+                      {!editingId && (
+                        <>
+                          <label className="text-xs text-muted-foreground block mt-3 mb-1">Schedule</label>
+                          <select
+                            value={formSchedule}
+                            onChange={(e) => setFormSchedule(Number(e.target.value))}
+                            className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                          >
+                            <option value={0}>No schedule (manual only)</option>
+                            {INTERVALS.map((i) => (
+                              <option key={i.minutes} value={i.minutes}>{i.label}</option>
+                            ))}
+                          </select>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 pt-1">
                     <Button type="submit" size="sm" disabled={formSaving} className="h-7 text-xs">
                       {formSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-                      Create Job
+                      {editingId ? "Save Changes" : "Create Job"}
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setShowCreate(false)}>
+                    <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={closeForm}>
                       Cancel
                     </Button>
                   </div>
@@ -484,6 +525,15 @@ export default function BackupsPage() {
                           <Play className="h-3.5 w-3.5 text-green-400" />
                         )}
                         Run Now
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => startEdit(job)}
+                        title="Edit job"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
                       </Button>
                       <Button
                         size="icon"
