@@ -85,6 +85,31 @@ model Company {
   devices Device[]
 }
 
+enum UserRole {
+  ADMIN
+  TECH
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  role         UserRole @default(TECH)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String
+  action    String
+  target    String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model Metric {
   id          String   @id @default(cuid())
   deviceId    String

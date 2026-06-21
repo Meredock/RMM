@@ -7,42 +7,45 @@ const secret = new TextEncoder().encode(
   process.env.JWT_SECRET ?? "fallback-dev-secret-change-in-prod"
 );
 
-export async function signSession(): Promise<string> {
-  return new SignJWT({ authenticated: true })
+export type Role = "ADMIN" | "TECH";
+export interface SessionUser {
+  username: string;
+  role: Role;
+}
+
+export async function signSession(user: SessionUser): Promise<string> {
+  return new SignJWT({ role: user.role })
+    .setSubject(user.username)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
     .sign(secret);
 }
 
-export async function verifySession(token: string): Promise<boolean> {
+export async function verifySessionUser(token: string): Promise<SessionUser | null> {
   try {
-    await jwtVerify(token, secret);
-    return true;
+    const { payload } = await jwtVerify(token, secret);
+    const username = typeof payload.sub === "string" ? payload.sub : "";
+    if (!username) return null;
+    return { username, role: payload.role === "ADMIN" ? "ADMIN" : "TECH" };
   } catch {
-    return false;
+    return null;
   }
 }
 
-export async function getSessionFromCookies(): Promise<boolean> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!token) return false;
-  return verifySession(token);
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  return token ? verifySessionUser(token) : null;
 }
 
-export async function getSessionFromRequest(req: NextRequest): Promise<boolean> {
+export async function getSessionUserFromRequest(req: NextRequest): Promise<SessionUser | null> {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  if (!token) return false;
-  return verifySession(token);
+  return token ? verifySessionUser(token) : null;
+}
+
+// Boolean check used by middleware (any authenticated user).
+export async function getSessionFromRequest(req: NextRequest): Promise<boolean> {
+  return (await getSessionUserFromRequest(req)) !== null;
 }
 
 export { SESSION_COOKIE };
-
-export function requireAgentKey(
-  req: NextRequest,
-  apiKey: string
-): boolean {
-  const header = req.headers.get("x-api-key");
-  return header === apiKey;
-}
