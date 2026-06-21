@@ -11,6 +11,10 @@ import (
 // setDPIAware is a no-op off Windows; X11/Quartz capture reports real pixels.
 func setDPIAware() {}
 
+// bindCaptureThread is a no-op off Windows; there is no desktop/winstation
+// isolation to bridge.
+func bindCaptureThread() {}
+
 func captureScreen() (string, int, int, error) {
 	switch runtime.GOOS {
 	case "darwin":

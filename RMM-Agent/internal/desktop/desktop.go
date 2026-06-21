@@ -45,6 +45,7 @@ func runInProcess(sessionId string, send func(wsconn.Msg), recv <-chan wsconn.Ms
 // captureFrames grabs the screen at the target frame rate, handing each encoded
 // frame to onFrame until stop is closed.
 func captureFrames(stop <-chan struct{}, onFrame func(b64 string, w, h int)) {
+	bindCaptureThread() // attach this capture thread to the visible desktop (Windows)
 	ticker := time.NewTicker(frameInterval)
 	defer ticker.Stop()
 	for {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	"runtime"
 	"sync"
 	"unsafe"
 
@@ -24,6 +25,8 @@ var (
 
 	procSetProcessDpiAwarenessContext = user32dll.NewProc("SetProcessDpiAwarenessContext")
 	procSetProcessDPIAware            = user32dll.NewProc("SetProcessDPIAware")
+	procOpenInputDesktop              = user32dll.NewProc("OpenInputDesktop")
+	procSetThreadDesktop              = user32dll.NewProc("SetThreadDesktop")
 
 	procCreateCompatibleDC     = gdi32dll.NewProc("CreateCompatibleDC")
 	procCreateCompatibleBitmap = gdi32dll.NewProc("CreateCompatibleBitmap")
@@ -54,6 +57,22 @@ func setDPIAware() {
 		// Fallback for Windows < 10 1703: system-DPI aware.
 		procSetProcessDPIAware.Call()
 	})
+}
+
+const genericAll = 0x10000000
+
+// bindCaptureThread locks the calling goroutine to its OS thread and attaches
+// that thread to the active input desktop. The helper's capture runs on a
+// goroutine whose OS thread may default to a different desktop than the
+// process's startup desktop; without this, GDI capture returns a black frame
+// even though input (on the main thread) reaches the real desktop. The lock is
+// intentionally never released so the thread stays bound for the goroutine's
+// life.
+func bindCaptureThread() {
+	runtime.LockOSThread()
+	if h, _, _ := procOpenInputDesktop.Call(0, 0, genericAll); h != 0 {
+		procSetThreadDesktop.Call(h)
+	}
 }
 
 // bitmapInfoHeader mirrors BITMAPINFOHEADER (40 bytes, matches Win32 exactly).
