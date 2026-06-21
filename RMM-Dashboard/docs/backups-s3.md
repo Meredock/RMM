@@ -59,5 +59,6 @@ subdomain:
 1. Add `backup.fixsmith.com.au` as a custom domain on the dashboard's Render
    service and point the DNS CNAME at Render.
 2. The dashboard middleware already redirects the `backup.` subdomain root to
-   the device list (mirroring the existing `portal.` convention), from which
-   each device's backup jobs and history are reached.
+   the backup overview (`/backups`, also linked in the sidebar), which lists
+   every job and recent runs across devices. Per-device create/run/schedule
+   actions live on each device's Backups tab.
