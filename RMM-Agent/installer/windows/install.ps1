@@ -9,7 +9,16 @@ $ErrorActionPreference = "Stop"
 $ServiceName = "RMMAgent"
 $InstallDir  = "$env:ProgramFiles\RMMAgent"
 $ConfigDir   = "$env:ProgramData\RMMAgent"
-$ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
+# Resolve the script's own folder across launch methods. $PSScriptRoot is set
+# when run as a file; fall back to the invocation path, then the current dir
+# (e.g. when the script is pasted into a console rather than executed).
+if ($PSScriptRoot) {
+    $ScriptDir = $PSScriptRoot
+} elseif ($MyInvocation.MyCommand.Path) {
+    $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+} else {
+    $ScriptDir = (Get-Location).Path
+}
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 Write-Host ""
