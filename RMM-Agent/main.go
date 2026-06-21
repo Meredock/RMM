@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"runtime"
 	"time"
@@ -70,11 +71,32 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := enforceTLS(cfg.DashboardURL); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	if checkWindowsService(cfg) {
 		return
 	}
 
 	runAgent(cfg)
+}
+
+// enforceTLS rejects plaintext dashboard URLs so the API key and command
+// traffic are never sent in the clear. Loopback addresses are allowed for
+// local development.
+func enforceTLS(dashboardURL string) error {
+	u, err := url.Parse(dashboardURL)
+	if err != nil {
+		return fmt.Errorf("invalid dashboard URL %q: %w", dashboardURL, err)
+	}
+	host := u.Hostname()
+	loopback := host == "localhost" || host == "127.0.0.1" || host == "::1"
+	if (u.Scheme == "http" || u.Scheme == "ws") && !loopback {
+		return fmt.Errorf("refusing insecure dashboard URL %q: use https:// (plaintext is only allowed for localhost)", dashboardURL)
+	}
+	return nil
 }
 
 func runAgent(cfg *config.Config) {

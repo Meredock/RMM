@@ -66,7 +66,11 @@ func (c *Config) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0600)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return err
+	}
+	secureFile(path)
+	return nil
 }
 
 func (c *Config) IsRegistered() bool {

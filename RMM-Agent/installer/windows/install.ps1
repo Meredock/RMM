@@ -106,6 +106,10 @@ $config = [ordered]@{
 [System.IO.File]::WriteAllText("$ConfigDir\config.json", ($config | ConvertTo-Json))
 Write-Host "  [+] Wrote config $ConfigDir\config.json" -ForegroundColor DarkGray
 
+# Lock the config (it holds the device API key) to SYSTEM + Administrators.
+& icacls "$ConfigDir\config.json" /inheritance:r /grant:r "SYSTEM:F" /grant:r "Administrators:F" | Out-Null
+Write-Host "  [+] Secured config ACL" -ForegroundColor DarkGray
+
 # ── Register Windows service ──────────────────────────────────────────────────
 $exePath = "$InstallDir\rmm-agent.exe"
 & sc.exe create $ServiceName binpath= "`"$exePath`"" start= auto DisplayName= "RMM Agent" | Out-Null
