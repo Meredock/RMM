@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auditCurrentUser } from "@/lib/audit";
 
 export async function GET(
   _req: NextRequest,
@@ -34,6 +35,9 @@ export async function POST(
   const cmd = await prisma.command.create({
     data: { deviceId: id, command: command.trim() },
   });
+
+  const action = command.trim().startsWith("avscan") ? "device.scan" : "device.command";
+  await auditCurrentUser(action, device.name, command.trim().slice(0, 200));
 
   return NextResponse.json(cmd, { status: 201 });
 }

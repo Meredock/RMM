@@ -9,7 +9,16 @@ $ErrorActionPreference = "Stop"
 $ServiceName = "RMMAgent"
 $InstallDir  = "$env:ProgramFiles\RMMAgent"
 $ConfigDir   = "$env:ProgramData\RMMAgent"
-$ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
+# Resolve the script's own folder across launch methods. $PSScriptRoot is set
+# when run as a file; fall back to the invocation path, then the current dir
+# (e.g. when the script is pasted into a console rather than executed).
+if ($PSScriptRoot) {
+    $ScriptDir = $PSScriptRoot
+} elseif ($MyInvocation.MyCommand.Path) {
+    $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+} else {
+    $ScriptDir = (Get-Location).Path
+}
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 Write-Host ""
@@ -96,6 +105,10 @@ $config = [ordered]@{
 }
 [System.IO.File]::WriteAllText("$ConfigDir\config.json", ($config | ConvertTo-Json))
 Write-Host "  [+] Wrote config $ConfigDir\config.json" -ForegroundColor DarkGray
+
+# Lock the config (it holds the device API key) to SYSTEM + Administrators.
+& icacls "$ConfigDir\config.json" /inheritance:r /grant:r "SYSTEM:F" /grant:r "Administrators:F" | Out-Null
+Write-Host "  [+] Secured config ACL" -ForegroundColor DarkGray
 
 # ── Register Windows service ──────────────────────────────────────────────────
 $exePath = "$InstallDir\rmm-agent.exe"

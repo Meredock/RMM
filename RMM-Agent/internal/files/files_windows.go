@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	kernel32dll               = windows.NewLazySystemDLL("kernel32.dll")
+	kernel32dll                = windows.NewLazySystemDLL("kernel32.dll")
 	procGetLogicalDriveStrings = kernel32dll.NewProc("GetLogicalDriveStringsW")
 )
 

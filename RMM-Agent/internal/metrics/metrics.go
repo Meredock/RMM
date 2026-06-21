@@ -10,16 +10,16 @@ import (
 )
 
 type Snapshot struct {
-	CPUPercent  float64 `json:"cpu_percent"`
-	RAMPercent  float64 `json:"ram_percent"`
-	RAMUsedMB   float64 `json:"ram_used_mb"`
-	RAMTotalMB  float64 `json:"ram_total_mb"`
-	DiskPercent float64 `json:"disk_percent"`
-	DiskUsedGB  float64 `json:"disk_used_gb"`
-	DiskTotalGB float64 `json:"disk_total_gb"`
-	IPAddress   string  `json:"ip_address,omitempty"`
-	OSVersion   string  `json:"os_version,omitempty"`
-	AgentVersion string `json:"agent_version,omitempty"`
+	CPUPercent   float64 `json:"cpu_percent"`
+	RAMPercent   float64 `json:"ram_percent"`
+	RAMUsedMB    float64 `json:"ram_used_mb"`
+	RAMTotalMB   float64 `json:"ram_total_mb"`
+	DiskPercent  float64 `json:"disk_percent"`
+	DiskUsedGB   float64 `json:"disk_used_gb"`
+	DiskTotalGB  float64 `json:"disk_total_gb"`
+	IPAddress    string  `json:"ip_address,omitempty"`
+	OSVersion    string  `json:"os_version,omitempty"`
+	AgentVersion string  `json:"agent_version,omitempty"`
 }
 
 func Collect(agentVersion string) (*Snapshot, error) {

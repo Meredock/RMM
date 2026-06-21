@@ -8,6 +8,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
 
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -21,7 +22,7 @@ function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username, password }),
       });
 
       if (res.ok) {
@@ -44,6 +45,25 @@ function LoginForm() {
     >
       <div className="mb-4">
         <label
+          htmlFor="username"
+          className="block text-sm font-medium text-foreground mb-1"
+        >
+          Username
+        </label>
+        <input
+          id="username"
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="w-full px-3 py-2 bg-background border border-border rounded-md text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+          placeholder="Username (leave blank for bootstrap admin)"
+          autoFocus
+          autoComplete="username"
+        />
+      </div>
+
+      <div className="mb-4">
+        <label
           htmlFor="password"
           className="block text-sm font-medium text-foreground mb-1"
         >
@@ -55,8 +75,8 @@ function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full px-3 py-2 bg-background border border-border rounded-md text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-          placeholder="Enter dashboard password"
-          autoFocus
+          placeholder="Password"
+          autoComplete="current-password"
           required
         />
       </div>

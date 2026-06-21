@@ -18,16 +18,96 @@ model Device {
   lastSeen     DateTime?
   ipAddress    String?
   agentVersion String?
+  companyId    String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  company         Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
   metrics         Metric[]
   commands        Command[]
   alerts          Alert[]
   backupSchedules BackupSchedule[]
   backupRuns      BackupRun[]
+  httpMonitors    HttpMonitor[]
 
   @@index([isOnline])
+  @@index([companyId])
+}
+
+// HttpMonitor is an HTTP endpoint health check. With no deviceId it runs from
+// the dashboard server; with a deviceId it runs from that agent (so it can
+// reach the customer's internal/LAN services).
+model HttpMonitor {
+  id              String    @id @default(cuid())
+  name            String
+  url             String
+  expectedStatus  Int?
+  timeoutMs       Int       @default(5000)
+  intervalMinutes Int       @default(5)
+  deviceId        String?
+  enabled         Boolean   @default(true)
+  nextRunAt       DateTime  @default(now())
+  lastOk          Boolean?
+  lastStatus      Int?
+  lastDurationMs  Int?
+  lastError       String?
+  lastCheckedAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  device Device?     @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  checks HttpCheck[]
+
+  @@index([enabled, nextRunAt])
+}
+
+model HttpCheck {
+  id         String   @id @default(cuid())
+  monitorId  String
+  ok         Boolean
+  status     Int?
+  durationMs Int?
+  error      String?
+  source     String   @default("server")
+  checkedAt  DateTime @default(now())
+
+  monitor HttpMonitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+
+  @@index([monitorId, checkedAt])
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  devices Device[]
+}
+
+enum UserRole {
+  ADMIN
+  TECH
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  role         UserRole @default(TECH)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String
+  action    String
+  target    String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 model Metric {

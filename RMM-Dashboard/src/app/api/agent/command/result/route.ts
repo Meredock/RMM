@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { applyCheckResult } from "@/lib/http-monitor";
+import { createAlert } from "@/lib/alerts";
+import { notify } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   const apiKey = req.headers.get("x-api-key");
@@ -66,16 +69,40 @@ export async function POST(req: NextRequest) {
         error: failed ? (output ?? null) : null,
       },
     });
+
+    if (failed) {
+      void notify(
+        "Backup failed",
+        `Backup failed on ${device.name}`,
+        "WARNING"
+      );
+    }
   }
 
-  if (failed) {
-    await prisma.alert.create({
-      data: {
-        deviceId: device.id,
-        type: "COMMAND_FAILED",
-        severity: "WARNING",
-        message: `Command failed on ${device.name}: ${command.command}`,
-      },
+  // Feed agent-run HTTP monitor results back into their monitor.
+  if (command.command.startsWith("httpcheck ")) {
+    try {
+      const reqJson = JSON.parse(command.command.slice("httpcheck ".length));
+      if (reqJson.monitorId && output) {
+        const r = JSON.parse(output);
+        await applyCheckResult(
+          reqJson.monitorId,
+          {
+            ok: !!r.ok,
+            status: r.status ?? null,
+            durationMs: r.durationMs ?? null,
+            error: r.error ?? null,
+          },
+          "agent"
+        );
+      }
+    } catch {}
+  } else if (failed) {
+    await createAlert({
+      deviceId: device.id,
+      type: "COMMAND_FAILED",
+      severity: "WARNING",
+      message: `Command failed on ${device.name}: ${command.command}`,
     });
   }
 

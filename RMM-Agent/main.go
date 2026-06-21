@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"runtime"
 	"time"
@@ -14,7 +15,9 @@ import (
 	"github.com/meredock/rmm-agent/internal/executor"
 	"github.com/meredock/rmm-agent/internal/files"
 	"github.com/meredock/rmm-agent/internal/metrics"
+	"github.com/meredock/rmm-agent/internal/selfupdate"
 	"github.com/meredock/rmm-agent/internal/terminal"
+	"github.com/meredock/rmm-agent/internal/tray"
 	"github.com/meredock/rmm-agent/internal/wsconn"
 )
 
@@ -26,13 +29,27 @@ func main() {
 	desktopHelper := flag.Bool("desktop-helper", false, "Internal: run as the remote-desktop capture helper")
 	desktopAddr := flag.String("desktop-addr", "", "Internal: helper callback address")
 	desktopToken := flag.String("desktop-token", "", "Internal: helper auth token")
+	trayHelper := flag.Bool("tray", false, "Internal: run as the system-tray presence helper")
+	applyUpdate := flag.Bool("apply-update", false, "Internal: install a downloaded update")
+	updateTarget := flag.String("update-target", "", "Internal: path of the binary to replace")
+	updateService := flag.String("update-service", "", "Internal: service to restart after update")
 	flag.Parse()
 
-	// Helper mode runs in the interactive session and must short-circuit before
+	// Helper modes run in the interactive session and must short-circuit before
 	// any config load or Windows service handling.
 	if *desktopHelper {
 		if err := desktop.RunHelper(*desktopAddr, *desktopToken); err != nil {
 			log.Printf("desktop helper exited: %v", err)
+		}
+		return
+	}
+	if *trayHelper {
+		tray.Run()
+		return
+	}
+	if *applyUpdate {
+		if err := selfupdate.ApplyUpdate(*updateTarget, *updateService); err != nil {
+			log.Printf("update failed: %v", err)
 		}
 		return
 	}
@@ -64,6 +81,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := enforceTLS(cfg.DashboardURL); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	if checkWindowsService(cfg) {
 		return
 	}
@@ -71,8 +93,31 @@ func main() {
 	runAgent(cfg)
 }
 
+// enforceTLS rejects plaintext dashboard URLs so the API key and command
+// traffic are never sent in the clear. Loopback addresses are allowed for
+// local development.
+func enforceTLS(dashboardURL string) error {
+	u, err := url.Parse(dashboardURL)
+	if err != nil {
+		return fmt.Errorf("invalid dashboard URL %q: %w", dashboardURL, err)
+	}
+	host := u.Hostname()
+	loopback := host == "localhost" || host == "127.0.0.1" || host == "::1"
+	if (u.Scheme == "http" || u.Scheme == "ws") && !loopback {
+		return fmt.Errorf("refusing insecure dashboard URL %q: use https:// (plaintext is only allowed for localhost)", dashboardURL)
+	}
+	return nil
+}
+
 func runAgent(cfg *config.Config) {
 	log.Printf("RMM Agent v%s | %s | %s", cfg.AgentVersion, runtime.GOOS, cfg.DashboardURL)
+
+	// Show a tray presence icon in the active user session (Windows service runs
+	// in Session 0, so this is delegated to a helper process).
+	tray.StartSupervisor()
+
+	// Poll the dashboard for newer builds and self-update (Windows service).
+	selfupdate.Start(cfg.DashboardURL, cfg.AgentVersion, "RMMAgent")
 
 	client := api.NewClient(cfg.DashboardURL, cfg.APIKey)
 

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { MetricsChart } from "@/components/MetricsChart";
 import { CommandPanel } from "@/components/CommandPanel";
+import { VirusScanButton } from "@/components/VirusScanButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -105,6 +106,7 @@ export default async function DeviceDetailPage({
               className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-sm font-medium transition-colors">
               <Archive className="h-4 w-4 text-purple-400" /> Backups
             </Link>
+            <VirusScanButton deviceId={device.id} />
           </div>
         )}
       </div>

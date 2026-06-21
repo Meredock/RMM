@@ -8,6 +8,10 @@ import {
   Server,
   Bell,
   Archive,
+  Building2,
+  Activity,
+  Users,
+  ScrollText,
   LogOut,
   ChevronRight,
 } from "lucide-react";
@@ -16,15 +20,24 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/devices", label: "Devices", icon: Server },
+  { href: "/companies", label: "Companies", icon: Building2 },
+  { href: "/monitoring", label: "Monitoring", icon: Activity },
   { href: "/backups", label: "Backup", icon: Archive },
   { href: "/alerts", label: "Alerts", icon: Bell },
 ];
 
+const adminNavItems = [
+  { href: "/users", label: "Users", icon: Users },
+  { href: "/audit", label: "Audit Log", icon: ScrollText },
+];
+
 interface SidebarProps {
   unresolved?: number;
+  username?: string;
+  role?: "ADMIN" | "TECH";
 }
 
-export function Sidebar({ unresolved = 0 }: SidebarProps) {
+export function Sidebar({ unresolved = 0, username, role }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -49,7 +62,7 @@ export function Sidebar({ unresolved = 0 }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {[...navItems, ...(role === "ADMIN" ? adminNavItems : [])].map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
@@ -75,8 +88,14 @@ export function Sidebar({ unresolved = 0 }: SidebarProps) {
         })}
       </nav>
 
-      {/* Logout */}
+      {/* User + logout */}
       <div className="px-3 py-4 border-t border-border">
+        {username && (
+          <div className="px-3 pb-2 text-xs text-muted-foreground">
+            Signed in as <span className="text-foreground font-medium">{username}</span>
+            {role && <span className="ml-1 uppercase text-[10px] tracking-wider">({role})</span>}
+          </div>
+        )}
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 w-full rounded-md text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
