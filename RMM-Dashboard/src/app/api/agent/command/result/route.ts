@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { applyCheckResult } from "@/lib/http-monitor";
 
 export async function POST(req: NextRequest) {
   const apiKey = req.headers.get("x-api-key");
@@ -68,7 +69,25 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  if (failed) {
+  // Feed agent-run HTTP monitor results back into their monitor.
+  if (command.command.startsWith("httpcheck ")) {
+    try {
+      const reqJson = JSON.parse(command.command.slice("httpcheck ".length));
+      if (reqJson.monitorId && output) {
+        const r = JSON.parse(output);
+        await applyCheckResult(
+          reqJson.monitorId,
+          {
+            ok: !!r.ok,
+            status: r.status ?? null,
+            durationMs: r.durationMs ?? null,
+            error: r.error ?? null,
+          },
+          "agent"
+        );
+      }
+    } catch {}
+  } else if (failed) {
     await prisma.alert.create({
       data: {
         deviceId: device.id,

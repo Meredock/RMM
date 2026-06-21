@@ -3,6 +3,7 @@ import { parse } from "url";
 import next from "next";
 import { RelayServer } from "./src/lib/relay";
 import { startBackupScheduler } from "./src/lib/backup-scheduler";
+import { startHttpMonitorScheduler } from "./src/lib/http-monitor";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = parseInt(process.env.PORT ?? "3000", 10);
@@ -18,6 +19,7 @@ app.prepare().then(() => {
 
   new RelayServer(server);
   startBackupScheduler();
+  startHttpMonitorScheduler();
 
   server.listen(port, host, () => {
     console.log(`> Ready on http://${host}:${port}`);

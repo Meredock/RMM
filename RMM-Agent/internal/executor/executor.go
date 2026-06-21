@@ -10,6 +10,7 @@ import (
 
 	"github.com/meredock/rmm-agent/internal/avscan"
 	"github.com/meredock/rmm-agent/internal/backup"
+	"github.com/meredock/rmm-agent/internal/httpcheck"
 )
 
 const timeout = 60 * time.Second
@@ -51,6 +52,15 @@ func Run(command string) Result {
 			ExitCode: 0,
 			Success:  true,
 		}
+	}
+
+	if payload, ok := httpcheckPayload(command); ok {
+		output, err := httpcheck.Run(payload)
+		if err != nil {
+			return Result{Output: err.Error(), ExitCode: 1, Success: false}
+		}
+		// A reachable-or-not result is still a successful check run.
+		return Result{Output: output, ExitCode: 0, Success: true}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -110,6 +120,16 @@ func avscanArg(command string) (string, bool) {
 	}
 	if strings.HasPrefix(command, "avscan ") {
 		return strings.TrimSpace(strings.TrimPrefix(command, "avscan ")), true
+	}
+	return "", false
+}
+
+// httpcheckPayload recognises "httpcheck {json}" commands.
+func httpcheckPayload(command string) (string, bool) {
+	command = strings.TrimSpace(command)
+	if strings.HasPrefix(command, "httpcheck ") {
+		payload := strings.TrimSpace(strings.TrimPrefix(command, "httpcheck "))
+		return payload, payload != ""
 	}
 	return "", false
 }

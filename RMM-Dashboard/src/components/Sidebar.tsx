@@ -9,6 +9,7 @@ import {
   Bell,
   Archive,
   Building2,
+  Activity,
   LogOut,
   ChevronRight,
 } from "lucide-react";
@@ -18,6 +19,7 @@ const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/devices", label: "Devices", icon: Server },
   { href: "/companies", label: "Companies", icon: Building2 },
+  { href: "/monitoring", label: "Monitoring", icon: Activity },
   { href: "/backups", label: "Backup", icon: Archive },
   { href: "/alerts", label: "Alerts", icon: Bell },
 ];
