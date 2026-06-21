@@ -16,8 +16,8 @@ type Client struct {
 
 func NewClient(baseURL, apiKey string) *Client {
 	return &Client{
-		baseURL: baseURL,
-		apiKey:  apiKey,
+		baseURL:    baseURL,
+		apiKey:     apiKey,
 		httpClient: &http.Client{Timeout: 15 * time.Second},
 	}
 }

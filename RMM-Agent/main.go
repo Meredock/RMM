@@ -15,6 +15,7 @@ import (
 	"github.com/meredock/rmm-agent/internal/executor"
 	"github.com/meredock/rmm-agent/internal/files"
 	"github.com/meredock/rmm-agent/internal/metrics"
+	"github.com/meredock/rmm-agent/internal/selfupdate"
 	"github.com/meredock/rmm-agent/internal/terminal"
 	"github.com/meredock/rmm-agent/internal/tray"
 	"github.com/meredock/rmm-agent/internal/wsconn"
@@ -29,6 +30,9 @@ func main() {
 	desktopAddr := flag.String("desktop-addr", "", "Internal: helper callback address")
 	desktopToken := flag.String("desktop-token", "", "Internal: helper auth token")
 	trayHelper := flag.Bool("tray", false, "Internal: run as the system-tray presence helper")
+	applyUpdate := flag.Bool("apply-update", false, "Internal: install a downloaded update")
+	updateTarget := flag.String("update-target", "", "Internal: path of the binary to replace")
+	updateService := flag.String("update-service", "", "Internal: service to restart after update")
 	flag.Parse()
 
 	// Helper modes run in the interactive session and must short-circuit before
@@ -41,6 +45,12 @@ func main() {
 	}
 	if *trayHelper {
 		tray.Run()
+		return
+	}
+	if *applyUpdate {
+		if err := selfupdate.ApplyUpdate(*updateTarget, *updateService); err != nil {
+			log.Printf("update failed: %v", err)
+		}
 		return
 	}
 
@@ -105,6 +115,9 @@ func runAgent(cfg *config.Config) {
 	// Show a tray presence icon in the active user session (Windows service runs
 	// in Session 0, so this is delegated to a helper process).
 	tray.StartSupervisor()
+
+	// Poll the dashboard for newer builds and self-update (Windows service).
+	selfupdate.Start(cfg.DashboardURL, cfg.AgentVersion, "RMMAgent")
 
 	client := api.NewClient(cfg.DashboardURL, cfg.APIKey)
 
