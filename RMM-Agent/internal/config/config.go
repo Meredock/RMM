@@ -7,14 +7,18 @@ import (
 	"runtime"
 )
 
+// Version is the agent build version. It is compiled into the binary and always
+// reported to the dashboard, regardless of any stale value in a saved config.
+const Version = "1.1.0"
+
 type Config struct {
-	DashboardURL        string `json:"dashboard_url"`
-	RegistrationSecret  string `json:"registration_secret,omitempty"`
-	DeviceName          string `json:"device_name"`
-	APIKey              string `json:"api_key,omitempty"`
-	DeviceID            string `json:"device_id,omitempty"`
-	IntervalSeconds     int    `json:"interval_seconds"`
-	AgentVersion        string `json:"agent_version"`
+	DashboardURL       string `json:"dashboard_url"`
+	RegistrationSecret string `json:"registration_secret,omitempty"`
+	DeviceName         string `json:"device_name"`
+	APIKey             string `json:"api_key,omitempty"`
+	DeviceID           string `json:"device_id,omitempty"`
+	IntervalSeconds    int    `json:"interval_seconds"`
+	AgentVersion       string `json:"agent_version"`
 }
 
 func DefaultConfig() *Config {
@@ -23,7 +27,7 @@ func DefaultConfig() *Config {
 		DashboardURL:    "http://localhost:3000",
 		DeviceName:      hostname,
 		IntervalSeconds: 30,
-		AgentVersion:    "1.0.0",
+		AgentVersion:    Version,
 	}
 }
 
