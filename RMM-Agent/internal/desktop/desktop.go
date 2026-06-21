@@ -25,6 +25,7 @@ func Handle(sessionId string, send func(wsconn.Msg), recv <-chan wsconn.Msg) {
 // when the agent runs in the interactive session (e.g. during development) and
 // is the fallback when a session helper can't be launched.
 func runInProcess(sessionId string, send func(wsconn.Msg), recv <-chan wsconn.Msg) {
+	setDPIAware() // align capture and cursor coordinates before any input
 	stop := make(chan struct{})
 	go captureFrames(stop, func(b64 string, w, h int) {
 		send(wsconn.Msg{
@@ -77,6 +78,7 @@ func handleInput(msg wsconn.Msg) {
 // interactive session. It connects back to the service, streams captured frames
 // over the connection, and applies input events it receives.
 func RunHelper(addr, token string) error {
+	setDPIAware() // align capture and cursor coordinates before any input
 	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
 	if err != nil {
 		return err

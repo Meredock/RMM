@@ -8,6 +8,9 @@ import (
 	"runtime"
 )
 
+// setDPIAware is a no-op off Windows; X11/Quartz capture reports real pixels.
+func setDPIAware() {}
+
 func captureScreen() (string, int, int, error) {
 	switch runtime.GOOS {
 	case "darwin":

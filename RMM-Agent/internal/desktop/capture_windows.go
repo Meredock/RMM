@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	"sync"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -21,6 +22,9 @@ var (
 	procReleaseDC        = user32dll.NewProc("ReleaseDC")
 	procGetSystemMetrics = user32dll.NewProc("GetSystemMetrics")
 
+	procSetProcessDpiAwarenessContext = user32dll.NewProc("SetProcessDpiAwarenessContext")
+	procSetProcessDPIAware            = user32dll.NewProc("SetProcessDPIAware")
+
 	procCreateCompatibleDC     = gdi32dll.NewProc("CreateCompatibleDC")
 	procCreateCompatibleBitmap = gdi32dll.NewProc("CreateCompatibleBitmap")
 	procSelectObject           = gdi32dll.NewProc("SelectObject")
@@ -28,7 +32,29 @@ var (
 	procGetDIBits              = gdi32dll.NewProc("GetDIBits")
 	procDeleteObject           = gdi32dll.NewProc("DeleteObject")
 	procDeleteDC               = gdi32dll.NewProc("DeleteDC")
+
+	dpiOnce sync.Once
 )
+
+// dpiAwarePerMonitorV2 is DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((HANDLE)-4).
+const dpiAwarePerMonitorV2 = ^uintptr(3)
+
+// setDPIAware makes this process DPI-aware so screen metrics, GDI capture, and
+// SetCursorPos all operate in true physical pixels. Without it, on a scaled
+// display (e.g. 150%) GetSystemMetrics reports a smaller logical size while
+// BitBlt reads physical pixels — capturing only the top-left corner (the
+// "zoomed in" symptom) and throwing cursor coordinates out of alignment.
+func setDPIAware() {
+	dpiOnce.Do(func() {
+		if procSetProcessDpiAwarenessContext.Find() == nil {
+			if ret, _, _ := procSetProcessDpiAwarenessContext.Call(dpiAwarePerMonitorV2); ret != 0 {
+				return
+			}
+		}
+		// Fallback for Windows < 10 1703: system-DPI aware.
+		procSetProcessDPIAware.Call()
+	})
+}
 
 // bitmapInfoHeader mirrors BITMAPINFOHEADER (40 bytes, matches Win32 exactly).
 type bitmapInfoHeader struct {
@@ -46,6 +72,8 @@ type bitmapInfoHeader struct {
 }
 
 func captureScreen() (string, int, int, error) {
+	setDPIAware()
+
 	sw, _, _ := procGetSystemMetrics.Call(0) // SM_CXSCREEN
 	sh, _, _ := procGetSystemMetrics.Call(1) // SM_CYSCREEN
 	w, h := int(sw), int(sh)
