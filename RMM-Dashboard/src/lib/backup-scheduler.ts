@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { buildBackupCommand, BackupConfigError } from "./backup-command";
 
 const prisma = new PrismaClient();
 
@@ -11,17 +12,27 @@ export function startBackupScheduler() {
       });
 
       for (const schedule of due) {
-        const archiveName = `${schedule.job.name.replace(/[^a-zA-Z0-9_-]/g, "-")}-${new Date().toISOString().slice(0, 10)}`;
-        const payload = JSON.stringify({
-          sources: schedule.job.sources,
-          exclude: schedule.job.exclude.length > 0 ? schedule.job.exclude : undefined,
-          destination: schedule.job.destination || undefined,
-          maxBytes: schedule.job.maxBytes || undefined,
-          name: archiveName,
-        });
+        let command: string;
+        try {
+          ({ command } = buildBackupCommand(schedule.job));
+        } catch (err) {
+          if (err instanceof BackupConfigError) {
+            console.error(
+              `[backup-scheduler] Skipping "${schedule.job.name}": ${err.message}`
+            );
+            // Push the next attempt out so we don't spin every minute on a
+            // misconfigured job.
+            await prisma.backupSchedule.update({
+              where: { id: schedule.id },
+              data: { nextRunAt: new Date(Date.now() + schedule.intervalMinutes * 60_000) },
+            });
+            continue;
+          }
+          throw err;
+        }
 
-        const command = await prisma.command.create({
-          data: { deviceId: schedule.deviceId, command: `backup ${payload}` },
+        const createdCommand = await prisma.command.create({
+          data: { deviceId: schedule.deviceId, command },
         });
 
         await prisma.backupRun.create({
@@ -29,7 +40,7 @@ export function startBackupScheduler() {
             jobId: schedule.jobId,
             scheduleId: schedule.id,
             deviceId: schedule.deviceId,
-            commandId: command.id,
+            commandId: createdCommand.id,
             status: "PENDING",
           },
         });

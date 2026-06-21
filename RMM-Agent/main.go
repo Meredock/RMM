@@ -23,17 +23,39 @@ func main() {
 	regSecret := flag.String("secret", "", "Registration secret")
 	deviceName := flag.String("name", "", "Device friendly name")
 	interval := flag.Int("interval", 0, "Heartbeat interval in seconds")
+	desktopHelper := flag.Bool("desktop-helper", false, "Internal: run as the remote-desktop capture helper")
+	desktopAddr := flag.String("desktop-addr", "", "Internal: helper callback address")
+	desktopToken := flag.String("desktop-token", "", "Internal: helper auth token")
 	flag.Parse()
+
+	// Helper mode runs in the interactive session and must short-circuit before
+	// any config load or Windows service handling.
+	if *desktopHelper {
+		if err := desktop.RunHelper(*desktopAddr, *desktopToken); err != nil {
+			log.Printf("desktop helper exited: %v", err)
+		}
+		return
+	}
 
 	cfg, err := config.Load()
 	if err != nil {
 		cfg = config.DefaultConfig()
 	}
-	if *dashboardURL != "" { cfg.DashboardURL = *dashboardURL }
-	if *regSecret != "" { cfg.RegistrationSecret = *regSecret }
-	if *deviceName != "" { cfg.DeviceName = *deviceName }
-	if *interval > 0 { cfg.IntervalSeconds = *interval }
-	if cfg.IntervalSeconds <= 0 { cfg.IntervalSeconds = 30 }
+	if *dashboardURL != "" {
+		cfg.DashboardURL = *dashboardURL
+	}
+	if *regSecret != "" {
+		cfg.RegistrationSecret = *regSecret
+	}
+	if *deviceName != "" {
+		cfg.DeviceName = *deviceName
+	}
+	if *interval > 0 {
+		cfg.IntervalSeconds = *interval
+	}
+	if cfg.IntervalSeconds <= 0 {
+		cfg.IntervalSeconds = 30
+	}
 
 	if cfg.DashboardURL == "" {
 		fmt.Fprintln(os.Stderr, "Error: dashboard URL is required (-url flag or config file)")

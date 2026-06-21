@@ -45,7 +45,9 @@ export async function POST(req: NextRequest) {
     if (!failed && output) {
       try {
         const result = JSON.parse(output);
-        archivePath = result.archive ?? null;
+        // `location` is the final resting place (remote URL when uploaded to
+        // S3, otherwise the local path); fall back to `archive` for older agents.
+        archivePath = result.location ?? result.archive ?? null;
         files = result.files ?? null;
         bytes = result.bytes ?? null;
         skipped = result.skipped ?? null;
