@@ -27,6 +27,11 @@ interface BackupJob {
   exclude: string[];
   destination: string | null;
   maxBytes: number | null;
+  storageType: "LOCAL" | "S3";
+  s3Bucket: string | null;
+  s3Prefix: string | null;
+  s3Region: string | null;
+  s3Endpoint: string | null;
   createdAt: string;
   schedules: BackupSchedule[];
   _count: { runs: number };
@@ -102,6 +107,11 @@ export default function BackupsPage() {
   const [formSources, setFormSources] = useState("");
   const [formExclude, setFormExclude] = useState("");
   const [formDest, setFormDest] = useState("");
+  const [formStorage, setFormStorage] = useState<"LOCAL" | "S3">("LOCAL");
+  const [formBucket, setFormBucket] = useState("");
+  const [formPrefix, setFormPrefix] = useState("");
+  const [formRegion, setFormRegion] = useState("");
+  const [formEndpoint, setFormEndpoint] = useState("");
   const [formSchedule, setFormSchedule] = useState(0); // 0 = no schedule
   const [formSaving, setFormSaving] = useState(false);
 
@@ -190,7 +200,12 @@ export default function BackupsPage() {
             name: formName.trim(),
             sources,
             exclude,
-            destination: formDest.trim() || null,
+            storageType: formStorage,
+            destination: formStorage === "LOCAL" ? formDest.trim() || null : null,
+            s3Bucket: formStorage === "S3" ? formBucket.trim() : undefined,
+            s3Prefix: formStorage === "S3" ? formPrefix.trim() : undefined,
+            s3Region: formStorage === "S3" ? formRegion.trim() : undefined,
+            s3Endpoint: formStorage === "S3" ? formEndpoint.trim() : undefined,
           }),
         });
         if (!res.ok) return;
@@ -208,6 +223,11 @@ export default function BackupsPage() {
         setFormSources("");
         setFormExclude("");
         setFormDest("");
+        setFormStorage("LOCAL");
+        setFormBucket("");
+        setFormPrefix("");
+        setFormRegion("");
+        setFormEndpoint("");
         setFormSchedule(0);
         setShowCreate(false);
         await fetchData();
@@ -215,7 +235,20 @@ export default function BackupsPage() {
         setFormSaving(false);
       }
     },
-    [id, formName, formSources, formExclude, formDest, formSchedule, fetchData]
+    [
+      id,
+      formName,
+      formSources,
+      formExclude,
+      formDest,
+      formStorage,
+      formBucket,
+      formPrefix,
+      formRegion,
+      formEndpoint,
+      formSchedule,
+      fetchData,
+    ]
   );
 
   // Find schedule for this device on a job
@@ -312,15 +345,73 @@ export default function BackupsPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-muted-foreground block mb-1">
-                        Destination <span className="text-muted-foreground/60">(optional, defaults to ProgramData)</span>
-                      </label>
-                      <input
-                        value={formDest}
-                        onChange={(e) => setFormDest(e.target.value)}
-                        placeholder="C:\\Backups"
-                        className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                      />
+                      <label className="text-xs text-muted-foreground block mb-1">Storage</label>
+                      <select
+                        value={formStorage}
+                        onChange={(e) => setFormStorage(e.target.value as "LOCAL" | "S3")}
+                        className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value="LOCAL">Local / network path</option>
+                        <option value="S3">S3-compatible bucket</option>
+                      </select>
+
+                      {formStorage === "LOCAL" ? (
+                        <>
+                          <label className="text-xs text-muted-foreground block mt-3 mb-1">
+                            Destination <span className="text-muted-foreground/60">(optional, defaults to ProgramData)</span>
+                          </label>
+                          <input
+                            value={formDest}
+                            onChange={(e) => setFormDest(e.target.value)}
+                            placeholder="C:\\Backups"
+                            className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                          />
+                        </>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2 mt-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground block mb-1">Bucket</label>
+                            <input
+                              value={formBucket}
+                              onChange={(e) => setFormBucket(e.target.value)}
+                              placeholder="fixsmith-backups"
+                              className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground block mb-1">Region</label>
+                            <input
+                              value={formRegion}
+                              onChange={(e) => setFormRegion(e.target.value)}
+                              placeholder="ap-southeast-2"
+                              className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground block mb-1">
+                              Prefix <span className="text-muted-foreground/60">(optional)</span>
+                            </label>
+                            <input
+                              value={formPrefix}
+                              onChange={(e) => setFormPrefix(e.target.value)}
+                              placeholder="clients/acme"
+                              className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground block mb-1">
+                              Endpoint <span className="text-muted-foreground/60">(optional)</span>
+                            </label>
+                            <input
+                              value={formEndpoint}
+                              onChange={(e) => setFormEndpoint(e.target.value)}
+                              placeholder="https://s3.amazonaws.com"
+                              className="w-full bg-background border border-border rounded px-3 py-1.5 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       <label className="text-xs text-muted-foreground block mt-3 mb-1">Schedule</label>
                       <select
                         value={formSchedule}

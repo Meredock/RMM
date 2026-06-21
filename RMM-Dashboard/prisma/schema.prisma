@@ -113,14 +113,19 @@ model AlertRule {
 }
 
 model BackupJob {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
   sources     String[]
   exclude     String[]
   destination String?
   maxBytes    Float?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  storageType StorageType @default(LOCAL)
+  s3Bucket    String?
+  s3Prefix    String?
+  s3Region    String?
+  s3Endpoint  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   schedules BackupSchedule[]
   runs      BackupRun[]
@@ -168,4 +173,9 @@ enum BackupRunStatus {
   RUNNING
   COMPLETED
   FAILED
+}
+
+enum StorageType {
+  LOCAL
+  S3
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { buildBackupCommand, BackupConfigError } from "@/lib/backup-command";
 
 export async function POST(
   req: NextRequest,
@@ -20,21 +21,22 @@ export async function POST(
   if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 });
   if (!device) return NextResponse.json({ error: "Device not found" }, { status: 404 });
 
-  const archiveName = `${job.name.replace(/[^a-zA-Z0-9_-]/g, "-")}-${new Date().toISOString().slice(0, 10)}`;
-  const payload = JSON.stringify({
-    sources: job.sources,
-    exclude: job.exclude.length > 0 ? job.exclude : undefined,
-    destination: job.destination || undefined,
-    maxBytes: job.maxBytes || undefined,
-    name: archiveName,
-  });
+  let command: string;
+  try {
+    ({ command } = buildBackupCommand(job));
+  } catch (err) {
+    if (err instanceof BackupConfigError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    throw err;
+  }
 
-  const command = await prisma.command.create({
-    data: { deviceId, command: `backup ${payload}` },
+  const createdCommand = await prisma.command.create({
+    data: { deviceId, command },
   });
 
   const run = await prisma.backupRun.create({
-    data: { jobId, deviceId, commandId: command.id, status: "PENDING" },
+    data: { jobId, deviceId, commandId: createdCommand.id, status: "PENDING" },
   });
 
   return NextResponse.json(run, { status: 201 });

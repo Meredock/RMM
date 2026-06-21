@@ -12,6 +12,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/portal", origin));
   }
 
+  // backup.fixsmith.com.au lands on the device list, the entry point to each
+  // device's backup jobs and history.
+  if (hostname.startsWith("backup.") && pathname === "/") {
+    return NextResponse.redirect(new URL("/devices", origin));
+  }
+
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }

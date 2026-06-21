@@ -15,16 +15,19 @@ import (
 )
 
 type Request struct {
-	Source      string   `json:"source,omitempty"`
-	Sources     []string `json:"sources,omitempty"`
-	Destination string   `json:"destination,omitempty"`
-	Name        string   `json:"name,omitempty"`
-	Exclude     []string `json:"exclude,omitempty"`
-	MaxBytes    int64    `json:"maxBytes,omitempty"`
+	Source      string      `json:"source,omitempty"`
+	Sources     []string    `json:"sources,omitempty"`
+	Destination string      `json:"destination,omitempty"`
+	Name        string      `json:"name,omitempty"`
+	Exclude     []string    `json:"exclude,omitempty"`
+	MaxBytes    int64       `json:"maxBytes,omitempty"`
+	Upload      *UploadSpec `json:"upload,omitempty"`
 }
 
 type Result struct {
 	Archive      string   `json:"archive"`
+	Location     string   `json:"location"`
+	Uploaded     bool     `json:"uploaded"`
 	Files        int      `json:"files"`
 	Bytes        int64    `json:"bytes"`
 	Skipped      int      `json:"skipped"`
@@ -93,6 +96,26 @@ func Run(req Request) (*Result, error) {
 
 	if err := writer.Close(); err != nil {
 		return nil, fmt.Errorf("finalize backup archive: %w", err)
+	}
+	// Release our handle so the archive can be uploaded and (on Windows)
+	// removed; the deferred Close becomes a harmless no-op.
+	if err := archiveFile.Close(); err != nil {
+		return nil, fmt.Errorf("finalize backup archive: %w", err)
+	}
+
+	result.Location = archivePath
+
+	if req.Upload != nil && strings.TrimSpace(req.Upload.URL) != "" {
+		if err := uploadArchive(archivePath, req.Upload); err != nil {
+			return nil, err
+		}
+		result.Uploaded = true
+		result.Location = sanitizeURL(req.Upload.URL)
+		if !req.Upload.KeepLocal {
+			if removeErr := os.Remove(archivePath); removeErr != nil {
+				recordSkipped(result, archivePath, fmt.Errorf("remove local archive after upload: %w", removeErr))
+			}
+		}
 	}
 
 	result.CompletedAt = time.Now().Format(time.RFC3339)
