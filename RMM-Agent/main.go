@@ -15,6 +15,7 @@ import (
 	"github.com/meredock/rmm-agent/internal/files"
 	"github.com/meredock/rmm-agent/internal/metrics"
 	"github.com/meredock/rmm-agent/internal/terminal"
+	"github.com/meredock/rmm-agent/internal/tray"
 	"github.com/meredock/rmm-agent/internal/wsconn"
 )
 
@@ -26,14 +27,19 @@ func main() {
 	desktopHelper := flag.Bool("desktop-helper", false, "Internal: run as the remote-desktop capture helper")
 	desktopAddr := flag.String("desktop-addr", "", "Internal: helper callback address")
 	desktopToken := flag.String("desktop-token", "", "Internal: helper auth token")
+	trayHelper := flag.Bool("tray", false, "Internal: run as the system-tray presence helper")
 	flag.Parse()
 
-	// Helper mode runs in the interactive session and must short-circuit before
+	// Helper modes run in the interactive session and must short-circuit before
 	// any config load or Windows service handling.
 	if *desktopHelper {
 		if err := desktop.RunHelper(*desktopAddr, *desktopToken); err != nil {
 			log.Printf("desktop helper exited: %v", err)
 		}
+		return
+	}
+	if *trayHelper {
+		tray.Run()
 		return
 	}
 
@@ -73,6 +79,10 @@ func main() {
 
 func runAgent(cfg *config.Config) {
 	log.Printf("RMM Agent v%s | %s | %s", cfg.AgentVersion, runtime.GOOS, cfg.DashboardURL)
+
+	// Show a tray presence icon in the active user session (Windows service runs
+	// in Session 0, so this is delegated to a helper process).
+	tray.StartSupervisor()
 
 	client := api.NewClient(cfg.DashboardURL, cfg.APIKey)
 
