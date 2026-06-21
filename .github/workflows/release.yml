@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: RMM-Agent/go.mod
+
+      - name: Build USB package
+        working-directory: RMM-Agent
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          OUT=dist/usb-package
+          rm -rf "$OUT"
+          mkdir -p "$OUT/windows" "$OUT/linux" "$OUT/macos"
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o "$OUT/windows/rmm-agent.exe" .
+          GOOS=linux   GOARCH=amd64 go build -ldflags="-s -w" -o "$OUT/linux/rmm-agent" .
+          GOOS=darwin  GOARCH=amd64 go build -ldflags="-s -w" -o "$OUT/macos/rmm-agent" .
+          GOOS=darwin  GOARCH=arm64 go build -ldflags="-s -w" -o "$OUT/macos/rmm-agent-arm64" .
+          cp installer/windows/install.ps1 installer/windows/uninstall.ps1 "$OUT/windows/"
+          cp installer/linux/install.sh "$OUT/linux/"
+          cp installer/macos/install.sh "$OUT/macos/"
+          cp installer/config.json installer/README.txt "$OUT/"
+          (cd dist && zip -rq "usb-package-${GITHUB_REF_NAME}.zip" usb-package)
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            RMM-Agent/dist/usb-package-*.zip
+            RMM-Agent/dist/usb-package/windows/rmm-agent.exe
+            RMM-Agent/dist/usb-package/linux/rmm-agent
+            RMM-Agent/dist/usb-package/macos/rmm-agent
+            RMM-Agent/dist/usb-package/macos/rmm-agent-arm64
