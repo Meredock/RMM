@@ -3,6 +3,7 @@ package files
 import (
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -34,6 +35,8 @@ func Handle(sessionId string, send func(wsconn.Msg), recv <-chan wsconn.Msg) {
 			mkdir(sessionId, reqId, msg.String("path"), send)
 		case "FILES_RENAME":
 			renamePath(sessionId, reqId, msg.String("from"), msg.String("to"), send)
+		case "FILES_COPY":
+			copyPath(sessionId, reqId, msg.String("from"), msg.String("to"), send)
 		}
 	}
 }
@@ -135,4 +138,53 @@ func renamePath(sessionId, reqId, from, to string, send func(wsconn.Msg)) {
 		return
 	}
 	reply(send, wsconn.Msg{"type": "FILES_RENAME_RES", "sessionId": sessionId, "reqId": reqId, "ok": true})
+}
+
+func copyPath(sessionId, reqId, from, to string, send func(wsconn.Msg)) {
+	if err := copyRecursive(from, to); err != nil {
+		reply(send, wsconn.Msg{"type": "FILES_COPY_RES", "sessionId": sessionId, "reqId": reqId, "ok": false, "error": err.Error()})
+		return
+	}
+	reply(send, wsconn.Msg{"type": "FILES_COPY_RES", "sessionId": sessionId, "reqId": reqId, "ok": true})
+}
+
+// copyRecursive copies a file or, for a directory, its whole tree from -> to.
+func copyRecursive(from, to string) error {
+	info, err := os.Stat(from)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return copyFile(from, to, info.Mode().Perm())
+	}
+	if err := os.MkdirAll(to, info.Mode().Perm()); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(from)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if err := copyRecursive(filepath.Join(from, e.Name()), filepath.Join(to, e.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyFile(from, to string, perm os.FileMode) error {
+	src, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	dst, err := os.OpenFile(to, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+	if _, err := io.Copy(dst, src); err != nil {
+		return err
+	}
+	return dst.Close()
 }
