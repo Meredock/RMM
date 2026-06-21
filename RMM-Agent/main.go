@@ -41,6 +41,8 @@ func main() {
 	if err != nil {
 		cfg = config.DefaultConfig()
 	}
+	// The binary's compiled version always wins over any persisted value.
+	cfg.AgentVersion = config.Version
 	if *dashboardURL != "" {
 		cfg.DashboardURL = *dashboardURL
 	}

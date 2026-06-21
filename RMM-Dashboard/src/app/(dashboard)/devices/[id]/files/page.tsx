@@ -5,9 +5,11 @@ import { useParams } from "next/navigation";
 import {
   ChevronLeft, ChevronRight, Folder, File, Upload,
   Download, Trash2, FolderPlus, Home, Loader2, Circle, RefreshCw,
+  FolderOpen, Scissors, Copy, ClipboardPaste, Pencil, Info, Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ContextMenu, ContextMenuItem } from "@/components/ContextMenu";
 import Link from "next/link";
 
 interface FileItem {
@@ -16,6 +18,17 @@ interface FileItem {
   isDir: boolean;
   size: number;
   modTime: string;
+}
+
+interface Clipboard {
+  item: FileItem;
+  op: "cut" | "copy";
+}
+
+interface MenuState {
+  x: number;
+  y: number;
+  item: FileItem | null; // null = empty-space (background) menu
 }
 
 type Status = "connecting" | "ready" | "error";
@@ -38,7 +51,11 @@ export default function FilesPage() {
   const [items, setItems] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [clipboard, setClipboard] = useState<Clipboard | null>(null);
+  const [properties, setProperties] = useState<FileItem | null>(null);
   const sessionIdRef = useRef<string>("");
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const send = useCallback((msg: Record<string, unknown>) => {
     wsRef.current?.send(JSON.stringify(msg));
@@ -133,6 +150,97 @@ export default function FilesPage() {
     await request("FILES_MKDIR", { path: newPath });
     listDir(currentPath);
   }, [request, listDir, currentPath]);
+
+  const renameItem = useCallback(
+    async (item: FileItem) => {
+      const newName = prompt("Rename to:", item.name);
+      if (!newName || newName === item.name) return;
+      const parent = item.path.slice(0, item.path.lastIndexOf("/"));
+      await request("FILES_RENAME", { from: item.path, to: `${parent}/${newName}` });
+      listDir(currentPath);
+    },
+    [request, listDir, currentPath]
+  );
+
+  // paste drops the clipboard item into targetDir. A "cut" moves (rename), a
+  // "copy" duplicates (server-side copy); same-folder copies get a " - Copy"
+  // name to avoid clobbering the original.
+  const paste = useCallback(
+    async (targetDir: string) => {
+      if (!clipboard) return;
+      const base = targetDir.replace(/\/$/, "");
+      let destName = clipboard.item.name;
+
+      if (clipboard.op === "copy" && targetDir === currentPath) {
+        const existing = new Set(items.map((i) => i.name));
+        if (existing.has(destName)) {
+          const dot = clipboard.item.isDir ? -1 : destName.lastIndexOf(".");
+          const stem = dot > 0 ? destName.slice(0, dot) : destName;
+          const ext = dot > 0 ? destName.slice(dot) : "";
+          let candidate = `${stem} - Copy${ext}`;
+          let n = 2;
+          while (existing.has(candidate)) candidate = `${stem} - Copy (${n++})${ext}`;
+          destName = candidate;
+        }
+      }
+
+      const to = `${base}/${destName}`;
+      if (clipboard.op === "cut") {
+        await request("FILES_RENAME", { from: clipboard.item.path, to });
+        setClipboard(null);
+      } else {
+        await request("FILES_COPY", { from: clipboard.item.path, to });
+      }
+      listDir(currentPath);
+    },
+    [clipboard, items, currentPath, request, listDir]
+  );
+
+  const openItem = useCallback(
+    (item: FileItem) => {
+      if (item.isDir) navigate(item.path);
+      else downloadFile(item.path, item.name);
+    },
+    [navigate, downloadFile]
+  );
+
+  const buildMenu = useCallback(
+    (item: FileItem | null): ContextMenuItem[] => {
+      if (!item) {
+        // Background menu (right-click on empty space)
+        return [
+          { label: "New Folder", icon: <FolderPlus className="h-4 w-4" />, onClick: mkdir },
+          {
+            label: "Paste",
+            icon: <ClipboardPaste className="h-4 w-4" />,
+            disabled: !clipboard,
+            onClick: () => paste(currentPath),
+          },
+          { label: "Upload file…", icon: <Upload className="h-4 w-4" />, onClick: () => uploadInputRef.current?.click() },
+          { divider: true },
+          { label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: () => listDir(currentPath) },
+        ];
+      }
+      return [
+        item.isDir
+          ? { label: "Open", icon: <FolderOpen className="h-4 w-4" />, onClick: () => navigate(item.path) }
+          : { label: "Download", icon: <Download className="h-4 w-4" />, onClick: () => downloadFile(item.path, item.name) },
+        ...(item.isDir && clipboard
+          ? [{ label: "Paste into folder", icon: <ClipboardPaste className="h-4 w-4" />, onClick: () => paste(item.path) }]
+          : []),
+        { divider: true },
+        { label: "Cut", icon: <Scissors className="h-4 w-4" />, onClick: () => setClipboard({ item, op: "cut" }) },
+        { label: "Copy", icon: <Copy className="h-4 w-4" />, onClick: () => setClipboard({ item, op: "copy" }) },
+        { label: "Rename", icon: <Pencil className="h-4 w-4" />, onClick: () => renameItem(item) },
+        { label: "Copy path", icon: <Link2 className="h-4 w-4" />, onClick: () => navigator.clipboard?.writeText(item.path) },
+        { divider: true },
+        { label: "Delete", icon: <Trash2 className="h-4 w-4" />, danger: true, onClick: () => deleteItem(item.path) },
+        { divider: true },
+        { label: "Properties", icon: <Info className="h-4 w-4" />, onClick: () => setProperties(item) },
+      ];
+    },
+    [clipboard, currentPath, mkdir, paste, listDir, navigate, downloadFile, renameItem, deleteItem]
+  );
 
   useEffect(() => {
     let active = true;
@@ -236,17 +344,21 @@ export default function FilesPage() {
           <Button variant="ghost" size="sm" onClick={mkdir} disabled={status !== "ready"}>
             <FolderPlus className="h-4 w-4 mr-1" /> New Folder
           </Button>
-          <label className="cursor-pointer">
-            <Button variant="ghost" size="sm" disabled={status !== "ready"} tabIndex={-1}>
-              <Upload className="h-4 w-4 mr-1" />Upload
-            </Button>
-            <input type="file" className="hidden" onChange={uploadFile} />
-          </label>
+          <Button variant="ghost" size="sm" disabled={status !== "ready"} onClick={() => uploadInputRef.current?.click()}>
+            <Upload className="h-4 w-4 mr-1" />Upload
+          </Button>
         </div>
       </div>
 
       {/* File list */}
-      <div className="flex-1 overflow-auto">
+      <div
+        className="flex-1 overflow-auto"
+        onContextMenu={(e) => {
+          if (status !== "ready") return;
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY, item: null });
+        }}
+      >
         {loading ? (
           <div className="flex items-center justify-center h-32 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading...
@@ -270,7 +382,18 @@ export default function FilesPage() {
                 <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">Empty directory</td></tr>
               )}
               {[...items].sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name)).map((item) => (
-                <tr key={item.path} className="hover:bg-accent/50 group">
+                <tr
+                  key={item.path}
+                  className={`hover:bg-accent/50 group ${
+                    clipboard?.op === "cut" && clipboard.item.path === item.path ? "opacity-50" : ""
+                  }`}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setMenu({ x: e.clientX, y: e.clientY, item });
+                  }}
+                  onDoubleClick={() => openItem(item)}
+                >
                   <td className="px-4 py-2">
                     <button
                       className="flex items-center gap-2 w-full text-left"
@@ -310,6 +433,55 @@ export default function FilesPage() {
           </table>
         )}
       </div>
+
+      {/* Hidden input used by the toolbar and context-menu upload actions */}
+      <input ref={uploadInputRef} type="file" className="hidden" onChange={uploadFile} />
+
+      {/* Right-click context menu */}
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={buildMenu(menu.item)}
+          onClose={() => setMenu(null)}
+        />
+      )}
+
+      {/* Properties dialog */}
+      {properties && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setProperties(null)}
+        >
+          <div
+            className="w-96 max-w-[90vw] rounded-lg border border-border bg-card p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center gap-2.5">
+              {properties.isDir
+                ? <Folder className="h-5 w-5 text-yellow-400 shrink-0" />
+                : <File className="h-5 w-5 text-muted-foreground shrink-0" />}
+              <span className="font-medium truncate">{properties.name}</span>
+            </div>
+            <dl className="space-y-2 text-sm">
+              {[
+                ["Type", properties.isDir ? "Folder" : "File"],
+                ["Size", properties.isDir ? "—" : formatSize(properties.size)],
+                ["Location", properties.path],
+                ["Modified", new Date(properties.modTime).toLocaleString()],
+              ].map(([label, value]) => (
+                <div key={label} className="flex gap-3">
+                  <dt className="w-20 shrink-0 text-muted-foreground">{label}</dt>
+                  <dd className="break-all text-foreground">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="mt-5 flex justify-end">
+              <Button size="sm" onClick={() => setProperties(null)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
