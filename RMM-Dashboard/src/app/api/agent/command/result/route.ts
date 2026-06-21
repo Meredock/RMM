@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { applyCheckResult } from "@/lib/http-monitor";
+import { createAlert } from "@/lib/alerts";
+import { notify } from "@/lib/notify";
 
 export async function POST(req: NextRequest) {
   const apiKey = req.headers.get("x-api-key");
@@ -67,6 +69,14 @@ export async function POST(req: NextRequest) {
         error: failed ? (output ?? null) : null,
       },
     });
+
+    if (failed) {
+      void notify(
+        "Backup failed",
+        `Backup failed on ${device.name}`,
+        "WARNING"
+      );
+    }
   }
 
   // Feed agent-run HTTP monitor results back into their monitor.
@@ -88,13 +98,11 @@ export async function POST(req: NextRequest) {
       }
     } catch {}
   } else if (failed) {
-    await prisma.alert.create({
-      data: {
-        deviceId: device.id,
-        type: "COMMAND_FAILED",
-        severity: "WARNING",
-        message: `Command failed on ${device.name}: ${command.command}`,
-      },
+    await createAlert({
+      deviceId: device.id,
+      type: "COMMAND_FAILED",
+      severity: "WARNING",
+      message: `Command failed on ${device.name}: ${command.command}`,
     });
   }
 
