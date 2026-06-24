@@ -8,7 +8,7 @@ import { InventoryPanel } from "@/components/InventoryPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ChevronLeft, Server, Globe, Cpu, MemoryStick, HardDrive, Clock, Terminal, FolderOpen, Monitor, Archive } from "lucide-react";
+import { ChevronLeft, Server, Cpu, MemoryStick, HardDrive, Clock, Terminal, FolderOpen, Monitor, Archive } from "lucide-react";
 import { formatBytes, timeAgo } from "@/lib/utils";
 import Link from "next/link";
 import { format } from "date-fns";

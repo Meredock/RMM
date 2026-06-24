@@ -26,7 +26,6 @@ interface MetricsChartProps {
 function CustomTooltip({
   active,
   payload,
-  label,
 }: {
   active?: boolean;
   payload?: Array<{ name: string; value: number; color: string; payload: { timestamp: string } }>;

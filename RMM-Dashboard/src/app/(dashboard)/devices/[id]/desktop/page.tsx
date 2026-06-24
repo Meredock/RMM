@@ -19,7 +19,7 @@ export default function DesktopPage() {
   const [remoteSize, setRemoteSize] = useState({ w: 1920, h: 1080 });
   const [inputEnabled, setInputEnabled] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
-  const fpsRef = useRef({ count: 0, last: Date.now() });
+  const fpsRef = useRef({ count: 0, last: 0 });
 
   const send = useCallback((msg: Record<string, unknown>) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {

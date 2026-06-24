@@ -58,7 +58,7 @@ export class RelayServer {
 
   // ── Agent side ──────────────────────────────────────────────────────────
 
-  private onAgentConnect(ws: WebSocket, req: IncomingMessage) {
+  private onAgentConnect(ws: WebSocket, _req: IncomingMessage) {
     let deviceId: string | null = null;
 
     ws.on("message", async (raw) => {

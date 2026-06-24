@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { DeviceCard } from "@/components/DeviceCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Monitor, Wifi, WifiOff, AlertTriangle } from "lucide-react";
 import { timeAgo } from "@/lib/utils";
