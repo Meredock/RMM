@@ -79,6 +79,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Store inventory / Windows-update reports collected from the agent.
+  const cmdName = command.command.trim();
+  if (!failed && output && (cmdName === "inventory" || cmdName === "winupdates")) {
+    try {
+      const data = JSON.parse(output);
+      const kind = cmdName === "inventory" ? "software" : "updates";
+      await prisma.deviceReport.upsert({
+        where: { deviceId_kind: { deviceId: device.id, kind } },
+        create: { deviceId: device.id, kind, data },
+        update: { data, collectedAt: new Date() },
+      });
+    } catch {}
+  }
+
   // Feed agent-run HTTP monitor results back into their monitor.
   if (command.command.startsWith("httpcheck ")) {
     try {
