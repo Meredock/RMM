@@ -57,6 +57,23 @@ into a fresh DB and let `migrate deploy` reconcile.
   domain. **The agent requires `https://`** — Caddy provides it, so don't use a
   bare-IP/http URL.
 
+## Running behind an existing nginx (instead of Caddy)
+If the server already runs nginx on ports 80/443, don't use the bundled Caddy —
+publish the dashboard on a local port and proxy to it:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml up -d --build
+```
+That listens on `127.0.0.1:3000` and skips Caddy. Then add the vhost:
+```bash
+sudo cp docs/nginx-rmm.conf.example /etc/nginx/sites-available/rmm
+sudo nano /etc/nginx/sites-available/rmm        # set server_name
+sudo ln -s /etc/nginx/sites-available/rmm /etc/nginx/sites-enabled/rmm
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d dashboard.example.com   # HTTPS (the agent requires it)
+```
+The config includes the WebSocket upgrade map + long timeouts that terminal /
+remote desktop / files need.
+
 ## Notes
 - All data lives in the `db-data` and `caddy-data` Docker volumes; back these up.
 - To enable optional features, fill the matching vars in `.env`: `ALERT_WEBHOOK_URL`
