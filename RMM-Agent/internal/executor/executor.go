@@ -3,6 +3,7 @@ package executor
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	"github.com/meredock/rmm-agent/internal/avscan"
 	"github.com/meredock/rmm-agent/internal/backup"
 	"github.com/meredock/rmm-agent/internal/httpcheck"
+	"github.com/meredock/rmm-agent/internal/script"
+	"github.com/meredock/rmm-agent/internal/sysinfo"
 )
 
 const timeout = 60 * time.Second
@@ -61,6 +64,29 @@ func Run(command string) Result {
 		}
 		// A reachable-or-not result is still a successful check run.
 		return Result{Output: output, ExitCode: 0, Success: true}
+	}
+
+	if c := strings.TrimSpace(command); c == "inventory" || c == "winupdates" {
+		var output string
+		var err error
+		if c == "inventory" {
+			output, err = sysinfo.Inventory()
+		} else {
+			output, err = sysinfo.WindowsUpdates()
+		}
+		if err != nil {
+			return Result{Output: output + "\n" + err.Error(), ExitCode: 1, Success: false}
+		}
+		return Result{Output: output, ExitCode: 0, Success: true}
+	}
+
+	if shell, content, ok := runscriptArgs(command); ok {
+		output, err := script.Run(shell, content)
+		exit := 0
+		if err != nil {
+			exit = 1
+		}
+		return Result{Output: output, ExitCode: exit, Success: err == nil}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -132,4 +158,22 @@ func httpcheckPayload(command string) (string, bool) {
 		return payload, payload != ""
 	}
 	return "", false
+}
+
+// runscriptArgs recognises "runscript <shell> <base64-content>" commands. The
+// content is base64-encoded to survive transport without quoting issues.
+func runscriptArgs(command string) (shell, content string, ok bool) {
+	command = strings.TrimSpace(command)
+	if !strings.HasPrefix(command, "runscript ") {
+		return "", "", false
+	}
+	fields := strings.Fields(strings.TrimPrefix(command, "runscript "))
+	if len(fields) != 2 {
+		return "", "", false
+	}
+	decoded, err := base64.StdEncoding.DecodeString(fields[1])
+	if err != nil {
+		return "", "", false
+	}
+	return fields[0], string(decoded), true
 }

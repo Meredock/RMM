@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { notify } from "./notify";
 
 export interface CheckResult {
   ok: boolean;
@@ -39,6 +40,12 @@ export async function applyCheckResult(
   result: CheckResult,
   source: "server" | "agent"
 ) {
+  // Read prior state so we only notify on a status transition (up→down / down→up).
+  const prev = await prisma.httpMonitor.findUnique({
+    where: { id: monitorId },
+    select: { name: true, url: true, lastOk: true },
+  });
+
   await prisma.httpMonitor.update({
     where: { id: monitorId },
     data: {
@@ -59,6 +66,18 @@ export async function applyCheckResult(
       source,
     },
   });
+
+  if (prev && prev.lastOk !== result.ok && prev.lastOk !== null) {
+    if (!result.ok) {
+      void notify(
+        "Monitor down",
+        `${prev.name} (${prev.url}) is DOWN — ${result.error ?? "check failed"}`,
+        "WARNING"
+      );
+    } else {
+      void notify("Monitor recovered", `${prev.name} (${prev.url}) is back UP`, "INFO");
+    }
+  }
 }
 
 // startHttpMonitorScheduler polls for due monitors every 30s. Server monitors

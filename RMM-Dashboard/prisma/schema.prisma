@@ -29,9 +29,36 @@ model Device {
   backupSchedules BackupSchedule[]
   backupRuns      BackupRun[]
   httpMonitors    HttpMonitor[]
+  reports         DeviceReport[]
 
   @@index([isOnline])
   @@index([companyId])
+}
+
+// DeviceReport stores the latest collected data of a given kind (e.g. installed
+// software, pending Windows updates) for a device, refreshed on demand.
+model DeviceReport {
+  id          String   @id @default(cuid())
+  deviceId    String
+  kind        String
+  data        Json
+  collectedAt DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, kind])
+}
+
+// Script is a reusable command/script in the library, runnable on a device or a
+// whole company.
+model Script {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  shell       String   @default("powershell")
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // HttpMonitor is an HTTP endpoint health check. With no deviceId it runs from

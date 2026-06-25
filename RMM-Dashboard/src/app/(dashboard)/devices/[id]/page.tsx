@@ -4,10 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { MetricsChart } from "@/components/MetricsChart";
 import { CommandPanel } from "@/components/CommandPanel";
 import { VirusScanButton } from "@/components/VirusScanButton";
+import { InventoryPanel } from "@/components/InventoryPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ChevronLeft, Server, Globe, Cpu, MemoryStick, HardDrive, Clock, Terminal, FolderOpen, Monitor, Archive } from "lucide-react";
+import { ChevronLeft, Server, Cpu, MemoryStick, HardDrive, Clock, Terminal, FolderOpen, Monitor, Archive } from "lucide-react";
 import { formatBytes, timeAgo } from "@/lib/utils";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -185,6 +186,7 @@ export default async function DeviceDetailPage({
         <TabsList>
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
           <TabsTrigger value="commands">Commands</TabsTrigger>
+          <TabsTrigger value="inventory">Inventory</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics">
@@ -204,6 +206,10 @@ export default async function DeviceDetailPage({
             isOnline={device.isOnline}
             initialCommands={commandsForPanel}
           />
+        </TabsContent>
+
+        <TabsContent value="inventory">
+          <InventoryPanel deviceId={device.id} isOnline={device.isOnline} />
         </TabsContent>
       </Tabs>
     </div>

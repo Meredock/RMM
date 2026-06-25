@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Building2, Plus, Trash2, Pencil, Check, X, Server, Loader2 } from "lucide-react";
+import { Building2, Plus, Trash2, Pencil, Check, X, Server, Loader2, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -70,6 +70,21 @@ export default function CompaniesPage() {
       fetchData();
     },
     [fetchData]
+  );
+
+  const runCommand = useCallback(
+    async (company: Company) => {
+      const command = prompt(`Run a command on all online devices in "${company.name}":`);
+      if (!command?.trim()) return;
+      const res = await fetch(`/api/companies/${company.id}/command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: command.trim() }),
+      });
+      const j = await res.json().catch(() => ({}));
+      alert(res.ok ? `Dispatched to ${j.dispatched} device(s). Output appears in each device's Commands tab.` : (j.error ?? "Failed"));
+    },
+    []
   );
 
   const assignDevice = useCallback(
@@ -144,6 +159,13 @@ export default function CompaniesPage() {
                       <span className="font-medium text-sm">{company.name}</span>
                       <Badge variant="secondary" className="text-xs">{members.length} devices</Badge>
                       <div className="ml-auto flex items-center gap-1">
+                        <button
+                          onClick={() => runCommand(company)}
+                          title="Run command on all online devices"
+                          className="text-muted-foreground hover:text-foreground p-1"
+                        >
+                          <Terminal className="h-3.5 w-3.5" />
+                        </button>
                         <button
                           onClick={() => { setEditingId(company.id); setEditName(company.name); }}
                           className="text-muted-foreground hover:text-foreground p-1"

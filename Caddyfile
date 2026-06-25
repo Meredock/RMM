@@ -1,0 +1,5 @@
+# Caddy fetches and renews a Let's Encrypt certificate for your domain
+# automatically, and proxies HTTP + WebSocket traffic to the dashboard.
+{$DASHBOARD_DOMAIN} {
+	reverse_proxy dashboard:3000
+}

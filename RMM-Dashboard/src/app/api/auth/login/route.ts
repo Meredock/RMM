@@ -44,7 +44,9 @@ export async function POST(req: NextRequest) {
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7,
     path: "/",
-    domain: ".fixsmith.com.au",
+    // Host-only by default; set COOKIE_DOMAIN (e.g. ".example.com") only when you
+    // need the session shared across subdomains.
+    ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
   });
 
   return response;
