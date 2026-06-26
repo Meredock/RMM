@@ -19,6 +19,7 @@ model Device {
   ipAddress    String?
   agentVersion String?
   companyId    String?
+  notes        String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -30,9 +31,23 @@ model Device {
   backupRuns      BackupRun[]
   httpMonitors    HttpMonitor[]
   reports         DeviceReport[]
+  fields          DeviceField[]
 
   @@index([isOnline])
   @@index([companyId])
+}
+
+// DeviceField is an arbitrary key/value custom field on a device (asset tag,
+// location, warranty, etc.).
+model DeviceField {
+  id       String @id @default(cuid())
+  deviceId String
+  key      String
+  value    String
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, key])
 }
 
 // DeviceReport stores the latest collected data of a given kind (e.g. installed

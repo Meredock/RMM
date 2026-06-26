@@ -33,6 +33,7 @@ export async function PATCH(
   const data: Record<string, unknown> = {};
   if (body.companyId !== undefined) data.companyId = body.companyId || null;
   if (body.name !== undefined && body.name.trim()) data.name = body.name.trim();
+  if (body.notes !== undefined) data.notes = body.notes || null;
 
   const device = await prisma.device.update({ where: { id }, data });
   return NextResponse.json(device);

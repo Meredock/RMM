@@ -5,6 +5,7 @@ import { MetricsChart } from "@/components/MetricsChart";
 import { CommandPanel } from "@/components/CommandPanel";
 import { VirusScanButton } from "@/components/VirusScanButton";
 import { InventoryPanel } from "@/components/InventoryPanel";
+import { DeviceNotes } from "@/components/DeviceNotes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -180,6 +181,9 @@ export default async function DeviceDetailPage({
           </dl>
         </CardContent>
       </Card>
+
+      {/* Notes & custom fields */}
+      <DeviceNotes deviceId={device.id} initialNotes={device.notes} />
 
       {/* Tabs */}
       <Tabs defaultValue="metrics">
