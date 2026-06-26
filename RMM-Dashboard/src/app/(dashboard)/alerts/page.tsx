@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Bell, CheckCircle, Filter } from "lucide-react";
+import { AlertRulesManager } from "@/components/AlertRulesManager";
 import { timeAgo } from "@/lib/utils";
 
 interface Alert {
@@ -86,6 +87,8 @@ export default function AlertsPage() {
           </Button>
         )}
       </div>
+
+      <AlertRulesManager />
 
       {/* Filter */}
       <div className="flex items-center gap-2">
