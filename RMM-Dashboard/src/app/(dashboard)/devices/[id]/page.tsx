@@ -6,6 +6,7 @@ import { CommandPanel } from "@/components/CommandPanel";
 import { VirusScanButton } from "@/components/VirusScanButton";
 import { InventoryPanel } from "@/components/InventoryPanel";
 import { DeviceNotes } from "@/components/DeviceNotes";
+import { DeviceActions } from "@/components/DeviceActions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -89,28 +90,31 @@ export default async function DeviceDetailPage({
           </div>
         </div>
 
-        {/* Remote access buttons */}
-        {device.isOnline && (
-          <div className="flex items-center gap-2 ml-auto">
-            <Link href={`/devices/${device.id}/terminal`}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-sm font-medium transition-colors">
-              <Terminal className="h-4 w-4 text-green-400" /> Terminal
-            </Link>
-            <Link href={`/devices/${device.id}/files`}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-sm font-medium transition-colors">
-              <FolderOpen className="h-4 w-4 text-yellow-400" /> Files
-            </Link>
-            <Link href={`/devices/${device.id}/desktop`}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-sm font-medium transition-colors">
-              <Monitor className="h-4 w-4 text-blue-400" /> Desktop
-            </Link>
-            <Link href={`/devices/${device.id}/backups`}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-sm font-medium transition-colors">
-              <Archive className="h-4 w-4 text-purple-400" /> Backups
-            </Link>
-            <VirusScanButton deviceId={device.id} />
-          </div>
-        )}
+        {/* Remote access + actions */}
+        <div className="flex items-center gap-2 ml-auto">
+          {device.isOnline && (
+            <>
+              <Link href={`/devices/${device.id}/terminal`}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-sm font-medium transition-colors">
+                <Terminal className="h-4 w-4 text-green-400" /> Terminal
+              </Link>
+              <Link href={`/devices/${device.id}/files`}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-sm font-medium transition-colors">
+                <FolderOpen className="h-4 w-4 text-yellow-400" /> Files
+              </Link>
+              <Link href={`/devices/${device.id}/desktop`}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-sm font-medium transition-colors">
+                <Monitor className="h-4 w-4 text-blue-400" /> Desktop
+              </Link>
+              <Link href={`/devices/${device.id}/backups`}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted hover:bg-accent text-sm font-medium transition-colors">
+                <Archive className="h-4 w-4 text-purple-400" /> Backups
+              </Link>
+              <VirusScanButton deviceId={device.id} />
+            </>
+          )}
+          <DeviceActions deviceId={device.id} isOnline={device.isOnline} />
+        </div>
       </div>
 
       {/* Quick stats */}

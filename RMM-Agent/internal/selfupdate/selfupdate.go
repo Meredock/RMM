@@ -26,9 +26,16 @@ type versionResponse struct {
 	} `json:"downloads"`
 }
 
+var (
+	cfgURL     string
+	cfgVersion string
+	cfgService string
+)
+
 // Start runs a background loop that periodically checks for and applies updates.
 // serviceName is the OS service to restart after swapping the binary.
 func Start(dashboardURL, currentVersion, serviceName string) {
+	cfgURL, cfgVersion, cfgService = dashboardURL, currentVersion, serviceName
 	go func() {
 		time.Sleep(2 * time.Minute) // don't disrupt startup
 		for {
@@ -38,6 +45,15 @@ func Start(dashboardURL, currentVersion, serviceName string) {
 			time.Sleep(6 * time.Hour)
 		}
 	}()
+}
+
+// CheckNow runs a single update check on demand (e.g. from a dashboard command),
+// using the config captured by Start.
+func CheckNow() error {
+	if cfgURL == "" {
+		return nil
+	}
+	return checkAndApply(cfgURL, cfgVersion, cfgService)
 }
 
 func checkAndApply(dashboardURL, currentVersion, serviceName string) error {

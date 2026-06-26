@@ -41,7 +41,15 @@ export async function POST(
     ? "device.scan"
     : c === "installupdates"
       ? "device.patch"
-      : "device.command";
+      : c.startsWith("shutdown /r")
+        ? "device.reboot"
+        : c.startsWith("shutdown /s")
+          ? "device.shutdown"
+          : c === "restart-agent"
+            ? "device.agent_restart"
+            : c === "update-agent"
+              ? "device.agent_update"
+              : "device.command";
   await auditCurrentUser(action, device.name, c.slice(0, 200));
 
   return NextResponse.json(cmd, { status: 201 });
