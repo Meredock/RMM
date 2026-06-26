@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Package, ShieldAlert, RefreshCw, Loader2 } from "lucide-react";
+import { Package, ShieldAlert, RefreshCw, Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
@@ -21,6 +21,7 @@ function asArray<T>(v: T | T[] | undefined): T[] {
 export function InventoryPanel({ deviceId, isOnline }: { deviceId: string; isOnline: boolean }) {
   const [reports, setReports] = useState<Reports>({});
   const [busy, setBusy] = useState<"inventory" | "winupdates" | null>(null);
+  const [installing, setInstalling] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/devices/${deviceId}/reports`);
@@ -55,6 +56,21 @@ export function InventoryPanel({ deviceId, isOnline }: { deviceId: string; isOnl
       setBusy(null);
     }
   }, [deviceId, reports]);
+
+  const installAll = useCallback(async () => {
+    if (!confirm("Download and install all pending updates now? This can take several minutes and the device may reboot.")) return;
+    setInstalling(true);
+    try {
+      await fetch(`/api/devices/${deviceId}/commands`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "installupdates" }),
+      });
+      alert("Update install started. It runs in the background (may reboot the device); the result appears in the Commands tab. Re-Check later to refresh the pending count.");
+    } finally {
+      setInstalling(false);
+    }
+  }, [deviceId]);
 
   const software = asArray(reports.software?.data);
   const updates = reports.updates?.data;
@@ -97,9 +113,16 @@ export function InventoryPanel({ deviceId, isOnline }: { deviceId: string; isOnl
           <span className="text-sm font-medium">Pending Windows Updates</span>
           {updates && <Badge variant={updates.count > 0 ? "warning" : "success"} className="text-xs">{updates.count}</Badge>}
           {reports.updates && <span className="text-xs text-muted-foreground">· {formatDistanceToNow(new Date(reports.updates.collectedAt), { addSuffix: true })}</span>}
-          <Button size="sm" variant="ghost" className="ml-auto h-7 text-xs gap-1" disabled={!isOnline || busy === "winupdates"} onClick={() => collect("winupdates")}>
-            {busy === "winupdates" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Check
-          </Button>
+          <div className="ml-auto flex items-center gap-1">
+            {updates && updates.count > 0 && (
+              <Button size="sm" variant="ghost" className="h-7 text-xs gap-1 text-amber-400 hover:text-amber-300" disabled={!isOnline || installing} onClick={installAll}>
+                {installing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />} Install all
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" disabled={!isOnline || busy === "winupdates"} onClick={() => collect("winupdates")}>
+              {busy === "winupdates" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Check
+            </Button>
+          </div>
         </div>
         <div className="max-h-80 overflow-auto">
           {!updates ? (

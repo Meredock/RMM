@@ -66,13 +66,16 @@ func Run(command string) Result {
 		return Result{Output: output, ExitCode: 0, Success: true}
 	}
 
-	if c := strings.TrimSpace(command); c == "inventory" || c == "winupdates" {
+	if c := strings.TrimSpace(command); c == "inventory" || c == "winupdates" || c == "installupdates" {
 		var output string
 		var err error
-		if c == "inventory" {
+		switch c {
+		case "inventory":
 			output, err = sysinfo.Inventory()
-		} else {
+		case "winupdates":
 			output, err = sysinfo.WindowsUpdates()
+		default:
+			output, err = sysinfo.InstallUpdates()
 		}
 		if err != nil {
 			return Result{Output: output + "\n" + err.Error(), ExitCode: 1, Success: false}

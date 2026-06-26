@@ -36,8 +36,13 @@ export async function POST(
     data: { deviceId: id, command: command.trim() },
   });
 
-  const action = command.trim().startsWith("avscan") ? "device.scan" : "device.command";
-  await auditCurrentUser(action, device.name, command.trim().slice(0, 200));
+  const c = command.trim();
+  const action = c.startsWith("avscan")
+    ? "device.scan"
+    : c === "installupdates"
+      ? "device.patch"
+      : "device.command";
+  await auditCurrentUser(action, device.name, c.slice(0, 200));
 
   return NextResponse.json(cmd, { status: 201 });
 }

@@ -11,3 +11,7 @@ func inventory() (string, error) {
 func windowsUpdates() (string, error) {
 	return "", fmt.Errorf("Windows update status is only supported on Windows")
 }
+
+func installUpdates() (string, error) {
+	return "", fmt.Errorf("installing updates is only supported on Windows")
+}
