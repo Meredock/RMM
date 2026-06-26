@@ -1,9 +1,12 @@
 # Fixsmith RMM Dashboard — runs the custom server (server.ts: Next.js + the
 # WebSocket relay + schedulers), so we build Next and start via tsx rather than
 # `next start`.
-FROM node:20-slim AS build
+#
+# Uses the full node:20 image (not -slim) because it already ships openssl +
+# ca-certificates, which Prisma needs — avoiding an apt-get step that fails on
+# hosts where the Debian mirrors aren't reachable during the build.
+FROM node:20 AS build
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -14,9 +17,8 @@ COPY . .
 ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 RUN npx prisma generate && npm run build
 
-FROM node:20-slim AS runtime
+FROM node:20 AS runtime
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 
 # Bring the whole built app (custom server + .next + node_modules + prisma).
