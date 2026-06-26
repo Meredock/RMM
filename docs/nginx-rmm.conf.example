@@ -1,0 +1,46 @@
+# Fixsmith RMM — nginx reverse proxy for the dashboard container.
+#
+# Install:
+#   sudo cp docs/nginx-rmm.conf.example /etc/nginx/sites-available/rmm
+#   # edit server_name below to your domain
+#   sudo ln -s /etc/nginx/sites-available/rmm /etc/nginx/sites-enabled/rmm
+#   sudo nginx -t && sudo systemctl reload nginx
+#   sudo certbot --nginx -d dashboard.example.com   # adds HTTPS (443) + redirect
+#
+# The agent REQUIRES https, which certbot provides here. nginx terminates TLS and
+# proxies plain HTTP to the container on 127.0.0.1:3000.
+
+# WebSocket upgrade map (terminal / remote desktop / files use WebSockets).
+# If your nginx already defines a $connection_upgrade map elsewhere, delete this.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name dashboard.example.com;   # <-- change to your domain
+
+    # Allow large file uploads through the Files manager.
+    client_max_body_size 512m;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+
+        # WebSocket support
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        # Forwarded headers
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Keep long-lived WebSocket sessions (remote desktop/terminal) alive.
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}
