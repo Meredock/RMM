@@ -122,23 +122,84 @@ you're instantly back to how it was.
 
 ---
 
-## Phase 4 — The other things (do later, one at a time)
+## Phase 4 — Migrate the GoDaddy website (static / PHP)
 
-You don't need these to get the RMM suite live. Tackle them separately so you
-don't overload yourself:
+**Only start this once the RMM dashboard is live and you're comfortable.** Same
+safety rule: nothing changes for visitors until you flip that site's DNS at the end.
 
-- **Tickets app (currently Railway/MySQL).** It lives in a *different* repo, so
-  it's not in this compose yet. When you're ready, tell me and I'll add a
-  `tickets` + `mysql` service to the same Docker stack the same way — then it
-  runs alongside the dashboard on the one server.
-- **GoDaddy website.** "Webhosting on GoDaddy" usually means one of two things —
-  tell me which and I'll write the matching steps:
-  1. **GoDaddy is just your domain/DNS** (no website there) → nothing to migrate;
-     you only change DNS records (which Phase 3 already does).
-  2. **GoDaddy hosts an actual website** (cPanel/WordPress/HTML) → that's a
-     separate move: copy the site files + any database, run it as another
-     container (e.g. nginx/PHP or WordPress) behind the same nginx, then point
-     that domain's DNS at the server.
+**4a. Get the site files off GoDaddy.** In GoDaddy's cPanel → **File Manager**,
+zip your site's document root (usually `public_html`) and download it — or use
+**FTP** (FileZilla). If the site uses a **MySQL database**, also export it: cPanel
+→ **phpMyAdmin** → select the DB → **Export** → Quick → download the `.sql`.
+
+**4b. Put the files on the server** (e.g. `~/RMM/site/`) and run them in a
+container. Create `~/RMM/docker-compose.site.yml`:
+```yaml
+services:
+  website:
+    image: php:8.2-apache        # serves both plain HTML and PHP
+    restart: unless-stopped
+    volumes:
+      - ./site:/var/www/html     # your copied files
+    ports:
+      - "127.0.0.1:8080:80"
+  # Uncomment if the site needs MySQL:
+  # site-db:
+  #   image: mysql:8
+  #   restart: unless-stopped
+  #   environment:
+  #     MYSQL_DATABASE: sitedb
+  #     MYSQL_USER: site
+  #     MYSQL_PASSWORD: changeme
+  #     MYSQL_ROOT_PASSWORD: changeme-root
+  #   volumes:
+  #     - site-db:/var/lib/mysql
+# volumes:
+#   site-db:
+```
+Start it: `docker compose -f docker-compose.site.yml up -d`. If you have a DB,
+import it: `docker compose -f docker-compose.site.yml exec -T site-db mysql -usite -pchangeme sitedb < yoursite.sql` (and update the site's DB host to `site-db`).
+
+**4c. nginx + HTTPS + DNS** — same pattern as the dashboard: an nginx vhost for
+the website's domain proxying to `http://127.0.0.1:8080`, `certbot --nginx -d
+yoursite.com`, then point that domain's DNS A record at `157.250.207.30`.
+
+---
+
+## Phase 5 — Migrate the tickets app (Node + MySQL, from Railway)
+
+The ticketing code is in its own GitHub repo, so the steps depend on its exact
+setup. **What I need from you to write the precise Dockerfile + compose:** the
+repo name, and its `package.json` (specifically the `start`/`build` scripts), the
+port it listens on, and the env vars it expects. The shape will be:
+```yaml
+# docker-compose.tickets.yml
+services:
+  tickets-db:
+    image: mysql:8
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: tickets
+      MYSQL_USER: tickets
+      MYSQL_PASSWORD: ${TICKETS_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${TICKETS_DB_ROOT}
+    volumes:
+      - tickets-db:/var/lib/mysql
+  tickets:
+    build: ./tickets            # the tickets repo cloned in here
+    restart: unless-stopped
+    depends_on: [tickets-db]
+    environment:
+      DATABASE_URL: mysql://tickets:${TICKETS_DB_PASSWORD}@tickets-db:3306/tickets
+      # ...the app's other env vars
+    ports:
+      - "127.0.0.1:8090:3000"   # adjust to the app's real port
+volumes:
+  tickets-db:
+```
+Migrate its data the same way: export the Railway MySQL (`mysqldump`) and import
+into the `tickets-db` container, then nginx vhost + certbot + DNS for the tickets
+domain. **Send me the repo name and I'll fill this in exactly.**
 
 ---
 
