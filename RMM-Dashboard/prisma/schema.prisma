@@ -124,7 +124,44 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  devices Device[]
+  devices     Device[]
+  credentials Credential[]
+  docs        CompanyDoc[]
+}
+
+// Credential is a vault entry (login/secret) for a customer. The secret is
+// stored AES-256-GCM encrypted (see lib/crypto); it never leaves the server
+// except via the audited reveal endpoint.
+model Credential {
+  id        String   @id @default(cuid())
+  companyId String
+  title     String
+  username  String?
+  secretEnc String
+  url       String?
+  category  String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+// CompanyDoc is a free-form documentation note for a customer (network info,
+// procedures, etc.).
+model CompanyDoc {
+  id        String   @id @default(cuid())
+  companyId String
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }
 
 enum UserRole {
