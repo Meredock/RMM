@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Activity, Plus, Trash2, RefreshCw, Globe, Server, Loader2, ToggleLeft, ToggleRight, X } from "lucide-react";
+import { Activity, Plus, Trash2, RefreshCw, Globe, Server, Loader2, ToggleLeft, ToggleRight, X, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
@@ -58,6 +58,7 @@ export default function MonitoringPage() {
   const [fStatus, setFStatus] = useState("");
   const [fInterval, setFInterval] = useState(5);
   const [fRunFrom, setFRunFrom] = useState(""); // "" = server, else deviceId
+  const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -73,33 +74,48 @@ export default function MonitoringPage() {
     return () => clearInterval(t);
   }, [fetchData]);
 
-  const create = useCallback(async () => {
+  const resetForm = useCallback(() => {
+    setFName(""); setFUrl(""); setFStatus(""); setFInterval(5); setFRunFrom(""); setEditId(null);
+  }, []);
+
+  const startEdit = useCallback((m: Monitor) => {
+    setEditId(m.id);
+    setFName(m.name);
+    setFUrl(m.url);
+    setFStatus(m.expectedStatus != null ? String(m.expectedStatus) : "");
+    setFInterval(m.intervalMinutes);
+    setFRunFrom(m.deviceId ?? "");
+    setShowCreate(true);
+  }, []);
+
+  const save = useCallback(async () => {
     if (!fName.trim() || !fUrl.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/monitors", {
-        method: "POST",
+      const payload = {
+        name: fName.trim(),
+        url: fUrl.trim(),
+        expectedStatus: fStatus ? Number(fStatus) : null,
+        intervalMinutes: fInterval,
+        deviceId: fRunFrom || null,
+      };
+      const res = await fetch(editId ? `/api/monitors/${editId}` : "/api/monitors", {
+        method: editId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: fName.trim(),
-          url: fUrl.trim(),
-          expectedStatus: fStatus ? Number(fStatus) : null,
-          intervalMinutes: fInterval,
-          deviceId: fRunFrom || null,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        alert(e.error ?? "Could not create monitor");
+        alert(e.error ?? "Could not save monitor");
         return;
       }
-      setFName(""); setFUrl(""); setFStatus(""); setFInterval(5); setFRunFrom("");
+      resetForm();
       setShowCreate(false);
       fetchData();
     } finally {
       setSaving(false);
     }
-  }, [fName, fUrl, fStatus, fInterval, fRunFrom, fetchData]);
+  }, [editId, fName, fUrl, fStatus, fInterval, fRunFrom, resetForm, fetchData]);
 
   const toggle = useCallback(async (m: Monitor) => {
     await fetch(`/api/monitors/${m.id}`, {
@@ -142,7 +158,7 @@ export default function MonitoringPage() {
             HTTP endpoint health checks · {upCount} up · {downCount} down
           </p>
         </div>
-        <Button size="sm" onClick={() => setShowCreate((v) => !v)} className="gap-1">
+        <Button size="sm" onClick={() => { resetForm(); setShowCreate(true); }} className="gap-1">
           <Plus className="h-4 w-4" /> New Monitor
         </Button>
       </div>
@@ -150,8 +166,8 @@ export default function MonitoringPage() {
       {showCreate && (
         <div className="bg-card border border-border rounded-lg p-4 max-w-2xl space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">New Monitor</h3>
-            <button onClick={() => setShowCreate(false)} className="text-muted-foreground hover:text-foreground">
+            <h3 className="text-sm font-semibold">{editId ? "Edit Monitor" : "New Monitor"}</h3>
+            <button onClick={() => { setShowCreate(false); resetForm(); }} className="text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -188,10 +204,10 @@ export default function MonitoringPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" onClick={create} disabled={saving} className="h-7 text-xs">
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null} Create
+            <Button size="sm" onClick={save} disabled={saving} className="h-7 text-xs">
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null} {editId ? "Save" : "Create"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowCreate(false)} className="h-7 text-xs">Cancel</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setShowCreate(false); resetForm(); }} className="h-7 text-xs">Cancel</Button>
           </div>
         </div>
       )}
@@ -227,6 +243,9 @@ export default function MonitoringPage() {
               <div className="flex items-center gap-1 shrink-0">
                 <Button size="icon" variant="ghost" className="h-7 w-7" disabled={checking.has(m.id)} onClick={() => checkNow(m.id)} title="Check now">
                   {checking.has(m.id) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                </Button>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => startEdit(m)} title="Edit">
+                  <Pencil className="h-3.5 w-3.5" />
                 </Button>
                 <button onClick={() => toggle(m)} title={m.enabled ? "Pause" : "Resume"}
                   className={m.enabled ? "text-green-400" : "text-muted-foreground"}>
