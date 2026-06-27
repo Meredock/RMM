@@ -13,6 +13,7 @@ import (
 	"github.com/meredock/rmm-agent/internal/backup"
 	"github.com/meredock/rmm-agent/internal/httpcheck"
 	"github.com/meredock/rmm-agent/internal/script"
+	"github.com/meredock/rmm-agent/internal/selfupdate"
 	"github.com/meredock/rmm-agent/internal/sysinfo"
 )
 
@@ -66,13 +67,16 @@ func Run(command string) Result {
 		return Result{Output: output, ExitCode: 0, Success: true}
 	}
 
-	if c := strings.TrimSpace(command); c == "inventory" || c == "winupdates" {
+	if c := strings.TrimSpace(command); c == "inventory" || c == "winupdates" || c == "installupdates" {
 		var output string
 		var err error
-		if c == "inventory" {
+		switch c {
+		case "inventory":
 			output, err = sysinfo.Inventory()
-		} else {
+		case "winupdates":
 			output, err = sysinfo.WindowsUpdates()
+		default:
+			output, err = sysinfo.InstallUpdates()
 		}
 		if err != nil {
 			return Result{Output: output + "\n" + err.Error(), ExitCode: 1, Success: false}
@@ -87,6 +91,19 @@ func Run(command string) Result {
 			exit = 1
 		}
 		return Result{Output: output, ExitCode: exit, Success: err == nil}
+	}
+
+	switch strings.TrimSpace(command) {
+	case "update-agent":
+		if err := selfupdate.CheckNow(); err != nil {
+			return Result{Output: "update check failed: " + err.Error(), ExitCode: 1, Success: false}
+		}
+		return Result{Output: "update check complete (agent updates and restarts if a newer build is available)", ExitCode: 0, Success: true}
+	case "restart-agent":
+		if err := scheduleAgentRestart(); err != nil {
+			return Result{Output: "restart failed: " + err.Error(), ExitCode: 1, Success: false}
+		}
+		return Result{Output: "agent service restart scheduled", ExitCode: 0, Success: true}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)

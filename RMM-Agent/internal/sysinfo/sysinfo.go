@@ -7,3 +7,7 @@ func Inventory() (string, error) { return inventory() }
 
 // WindowsUpdates returns pending OS updates as JSON.
 func WindowsUpdates() (string, error) { return windowsUpdates() }
+
+// InstallUpdates downloads and installs all pending OS updates, returning a JSON
+// summary (installed count, per-update result, reboot-required flag).
+func InstallUpdates() (string, error) { return installUpdates() }

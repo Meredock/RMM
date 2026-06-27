@@ -1,15 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { AlertType, AlertSeverity } from "@prisma/client";
+import { createAlert } from "@/lib/alerts";
 
 const OFFLINE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
 
 async function markStaleDevicesOffline() {
   const threshold = new Date(Date.now() - OFFLINE_THRESHOLD_MS);
-  await prisma.device.updateMany({
+  const stale = await prisma.device.findMany({
     where: { isOnline: true, lastSeen: { lt: threshold } },
+    select: { id: true, name: true },
+  });
+  if (stale.length === 0) return;
+
+  await prisma.device.updateMany({
+    where: { id: { in: stale.map((d) => d.id) } },
     data: { isOnline: false },
   });
+
+  // Raise a DEVICE_OFFLINE alert for each newly-offline device that has an
+  // enabled rule (global or device-specific) and no open offline alert.
+  for (const d of stale) {
+    const rule = await prisma.alertRule.findFirst({
+      where: { isEnabled: true, type: "DEVICE_OFFLINE", OR: [{ deviceId: d.id }, { deviceId: null }] },
+    });
+    if (!rule) continue;
+    const existing = await prisma.alert.findFirst({
+      where: { deviceId: d.id, type: "DEVICE_OFFLINE", isResolved: false },
+    });
+    if (existing) continue;
+    await createAlert({ deviceId: d.id, type: "DEVICE_OFFLINE", severity: rule.severity, message: `${d.name} went offline` });
+  }
 }
 
 async function triggerAlerts(
@@ -42,13 +62,11 @@ async function triggerAlerts(
     });
     if (existing) continue;
 
-    await prisma.alert.create({
-      data: {
-        deviceId,
-        type: rule.type as AlertType,
-        severity: rule.severity as AlertSeverity,
-        message: metric.message(metric.value),
-      },
+    await createAlert({
+      deviceId,
+      type: rule.type,
+      severity: rule.severity,
+      message: metric.message(metric.value),
     });
   }
 }

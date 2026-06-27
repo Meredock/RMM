@@ -47,3 +47,25 @@ $updates = @($result.Updates | ForEach-Object {
 ConvertTo-Json -Depth 4 -Compress ([pscustomobject]@{ count = $updates.Count; updates = $updates })`
 	return runPowerShell(script, 10*time.Minute)
 }
+
+func installUpdates() (string, error) {
+	script := `$ErrorActionPreference='Stop';
+$session = New-Object -ComObject Microsoft.Update.Session;
+$result = $session.CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0");
+if ($result.Updates.Count -eq 0) {
+  ConvertTo-Json -Compress ([pscustomobject]@{ installed = 0; rebootRequired = $false; results = @() }); return
+}
+$toInstall = New-Object -ComObject Microsoft.Update.UpdateColl;
+foreach ($u in $result.Updates) { if (-not $u.EulaAccepted) { $u.AcceptEula() }; [void]$toInstall.Add($u) }
+$dl = $session.CreateUpdateDownloader(); $dl.Updates = $toInstall; [void]$dl.Download();
+$inst = $session.CreateUpdateInstaller(); $inst.Updates = $toInstall;
+$res = $inst.Install();
+$map = @{2='Succeeded';3='SucceededWithErrors';4='Failed';5='Aborted'};
+$items = @();
+for ($i=0; $i -lt $toInstall.Count; $i++) {
+  $code = $res.GetUpdateResult($i).ResultCode;
+  $items += [pscustomobject]@{ title = $toInstall.Item($i).Title; result = $map[[int]$code] }
+}
+ConvertTo-Json -Depth 4 -Compress ([pscustomobject]@{ installed = $toInstall.Count; rebootRequired = $res.RebootRequired; results = $items })`
+	return runPowerShell(script, 60*time.Minute)
+}
