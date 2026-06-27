@@ -183,17 +183,22 @@ func beat(client *api.Client, cfg *config.Config) {
 		log.Printf("Heartbeat error: %v", err)
 		return
 	}
-	if len(resp.PendingCommands) == 0 {
-		return
-	}
+	// Run each command in its own goroutine so a long-running one (AV scan,
+	// update install, script) never blocks heartbeats — otherwise the agent
+	// would appear offline for the command's whole duration. The dashboard marks
+	// dispatched commands RUNNING, so they're never handed out twice.
 	for _, cmd := range resp.PendingCommands {
-		log.Printf("Running: %s", cmd.Command)
-		result := executor.Run(cmd.Command)
-		if err := client.ReportResult(api.CommandResultRequest{
-			CommandID: cmd.ID, Output: result.Output,
-			ExitCode: result.ExitCode, Success: result.Success,
-		}); err != nil {
-			log.Printf("Report result error: %v", err)
-		}
+		go runCommand(client, cmd)
+	}
+}
+
+func runCommand(client *api.Client, cmd api.PendingCommand) {
+	log.Printf("Running: %s", cmd.Command)
+	result := executor.Run(cmd.Command)
+	if err := client.ReportResult(api.CommandResultRequest{
+		CommandID: cmd.ID, Output: result.Output,
+		ExitCode: result.ExitCode, Success: result.Success,
+	}); err != nil {
+		log.Printf("Report result error: %v", err)
 	}
 }

@@ -26,6 +26,9 @@ func runScan(scanType string) (string, error) {
 	}
 
 	script := "$ErrorActionPreference='Stop';" +
+		"if (-not (Get-Command Start-MpScan -ErrorAction SilentlyContinue)) { Write-Output 'Microsoft Defender is not available on this device (cmdlets missing).'; exit 1 };" +
+		"$st = Get-MpComputerStatus -ErrorAction SilentlyContinue;" +
+		"if ($st -and -not $st.AntivirusEnabled) { Write-Output 'Microsoft Defender is disabled here (a third-party antivirus is likely active), so a Defender scan cannot run.'; exit 1 };" +
 		"Start-MpScan -ScanType " + psType + ";" +
 		"Write-Output '--- Recent threat detections ---';" +
 		"$d = Get-MpThreatDetection -ErrorAction SilentlyContinue | Sort-Object InitialDetectionTime -Descending | Select-Object -First 20;" +
