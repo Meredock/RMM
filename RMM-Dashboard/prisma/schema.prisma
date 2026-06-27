@@ -149,6 +149,19 @@ model Credential {
   @@index([companyId])
 }
 
+// SiteScan stores the result of a website reconnaissance scan (DNS, IPs, CMS,
+// security headers, subdomains) for a domain, optionally tied to a customer.
+model SiteScan {
+  id        String   @id @default(cuid())
+  domain    String
+  companyId String?
+  result    Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([companyId])
+}
+
 // CompanyDoc is a free-form documentation note for a customer (network info,
 // procedures, etc.).
 model CompanyDoc {

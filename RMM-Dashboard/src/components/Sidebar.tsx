@@ -14,6 +14,7 @@ import {
   ScrollText,
   FileCode,
   KeyRound,
+  Radar,
   LogOut,
   ChevronRight,
 } from "lucide-react";
@@ -26,6 +27,7 @@ const navItems = [
   { href: "/monitoring", label: "Monitoring", icon: Activity },
   { href: "/scripts", label: "Scripts", icon: FileCode },
   { href: "/vault", label: "Vault", icon: KeyRound },
+  { href: "/security", label: "Web Security", icon: Radar },
   { href: "/backups", label: "Backup", icon: Archive },
   { href: "/alerts", label: "Alerts", icon: Bell },
 ];
