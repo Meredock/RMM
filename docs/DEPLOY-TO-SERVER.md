@@ -166,40 +166,43 @@ yoursite.com`, then point that domain's DNS A record at `157.250.207.30`.
 
 ---
 
-## Phase 5 — Migrate the tickets app (Node + MySQL, from Railway)
+## Phase 5 — Migrate the tickets app (already wired up)
 
-The ticketing code is in its own GitHub repo, so the steps depend on its exact
-setup. **What I need from you to write the precise Dockerfile + compose:** the
-repo name, and its `package.json` (specifically the `start`/`build` scripts), the
-port it listens on, and the env vars it expects. The shape will be:
-```yaml
-# docker-compose.tickets.yml
-services:
-  tickets-db:
-    image: mysql:8
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: tickets
-      MYSQL_USER: tickets
-      MYSQL_PASSWORD: ${TICKETS_DB_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${TICKETS_DB_ROOT}
-    volumes:
-      - tickets-db:/var/lib/mysql
-  tickets:
-    build: ./tickets            # the tickets repo cloned in here
-    restart: unless-stopped
-    depends_on: [tickets-db]
-    environment:
-      DATABASE_URL: mysql://tickets:${TICKETS_DB_PASSWORD}@tickets-db:3306/tickets
-      # ...the app's other env vars
-    ports:
-      - "127.0.0.1:8090:3000"   # adjust to the app's real port
-volumes:
-  tickets-db:
+The tickets app (`Fixsmith-Tickets/`) lives in this repo, so it's fully prepared:
+a `Dockerfile` and `docker-compose.tickets.yml` are committed. It's a Node app
+that auto-creates its MySQL schema on startup and **reuses the dashboard's
+`JWT_SECRET`, so one login works across both.**
+
+**5a. Set the tickets vars in `.env`** (already added to `.env.docker.example`):
+`TICKETS_DB_PASSWORD`, `TICKETS_DB_ROOT`, and the `SMTP_*` values for ticket
+emails. (`JWT_SECRET` is already shared from the dashboard section.)
+
+**5b. Bring it up** alongside the dashboard by adding the third compose file:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.nginx.yml -f docker-compose.tickets.yml up -d --build
 ```
-Migrate its data the same way: export the Railway MySQL (`mysqldump`) and import
-into the `tickets-db` container, then nginx vhost + certbot + DNS for the tickets
-domain. **Send me the repo name and I'll fill this in exactly.**
+This starts `tickets-db` (MySQL) and `tickets` (on `127.0.0.1:8090`). The schema
+is created automatically on first boot.
+
+**5c. Migrate your Railway data** (keep existing tickets):
+```bash
+# Export from Railway (grab the MySQL connection details from Railway → your DB):
+mysqldump -h <RAILWAY_HOST> -P <PORT> -u <USER> -p<PASS> <DBNAME> > tickets.sql
+# Load into the container DB:
+docker compose -f docker-compose.tickets.yml cp tickets.sql tickets-db:/tmp/tickets.sql
+docker compose -f docker-compose.tickets.yml exec tickets-db \
+  sh -c 'mysql -u tickets -p"$MYSQL_PASSWORD" tickets < /tmp/tickets.sql'
+```
+
+**5d. nginx + HTTPS + DNS** — an nginx vhost for the tickets domain (e.g.
+`tickets.fixsmith.com.au`) proxying to `http://127.0.0.1:8090` (same WebSocket-
+free proxy block is fine), `certbot --nginx -d tickets.fixsmith.com.au`, then
+point that domain's DNS at the server.
+
+> **Shared login across subdomains:** for one login to cover both the dashboard
+> and tickets, set `COOKIE_DOMAIN=.fixsmith.com.au` in `.env` (so the session
+> cookie is shared) and keep both on `*.fixsmith.com.au`. Without it, each is
+> logged into separately.
 
 ---
 
