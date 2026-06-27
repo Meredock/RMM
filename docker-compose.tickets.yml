@@ -1,0 +1,43 @@
+# Adds the Fixsmith Tickets app + its MySQL to the stack. Layer it on:
+#   docker compose -f docker-compose.yml -f docker-compose.nginx.yml -f docker-compose.tickets.yml up -d --build
+# Tickets reuses the same JWT_SECRET as the dashboard so a single login works
+# across both. It listens on 127.0.0.1:8090 for your host nginx to proxy.
+services:
+  tickets-db:
+    image: mysql:8
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: tickets
+      MYSQL_USER: tickets
+      MYSQL_PASSWORD: ${TICKETS_DB_PASSWORD:-tickets}
+      MYSQL_ROOT_PASSWORD: ${TICKETS_DB_ROOT:-change-me-root}
+    volumes:
+      - tickets-db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  tickets:
+    build:
+      context: ./Fixsmith-Tickets
+    restart: unless-stopped
+    depends_on:
+      tickets-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://tickets:${TICKETS_DB_PASSWORD:-tickets}@tickets-db:3306/tickets
+      JWT_SECRET: ${JWT_SECRET}          # MUST match the dashboard's for shared login
+      PORT: "3000"
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    ports:
+      - "127.0.0.1:${TICKETS_HOST_PORT:-8090}:3000"
+
+volumes:
+  tickets-db:

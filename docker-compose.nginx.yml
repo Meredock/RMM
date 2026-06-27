@@ -2,12 +2,13 @@
 #
 #   docker compose -f docker-compose.yml -f docker-compose.nginx.yml up -d --build
 #
-# This publishes the dashboard on 127.0.0.1:3000 for nginx to reverse-proxy, and
-# parks Caddy under an unused profile so it doesn't start (it would otherwise
-# fight nginx for ports 80/443). See docs/nginx-rmm.conf.example for the vhost.
+# This publishes the dashboard on 127.0.0.1:3000 (override with DASHBOARD_HOST_PORT
+# if that's taken on a shared server) for nginx to reverse-proxy, and parks Caddy
+# under an unused profile so it doesn't start (it would otherwise fight nginx for
+# ports 80/443). See docs/nginx-rmm.conf.example for the vhost.
 services:
   dashboard:
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${DASHBOARD_HOST_PORT:-3000}:3000"
   caddy:
     profiles: ["disabled"]
