@@ -9,7 +9,7 @@ import (
 
 // Version is the agent build version. It is compiled into the binary and always
 // reported to the dashboard, regardless of any stale value in a saved config.
-const Version = "1.1.0"
+const Version = "1.1.1"
 
 type Config struct {
 	DashboardURL       string `json:"dashboard_url"`
