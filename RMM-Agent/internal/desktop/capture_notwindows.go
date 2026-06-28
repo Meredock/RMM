@@ -15,6 +15,14 @@ func setDPIAware() {}
 // isolation to bridge.
 func bindCaptureThread() {}
 
+// newCapturer off Windows just wraps the per-frame screenshot helper.
+func newCapturer() screenCapturer { return shellCapturer{} }
+
+type shellCapturer struct{}
+
+func (shellCapturer) frame() (string, int, int, error) { return captureScreen() }
+func (shellCapturer) close()                           {}
+
 func captureScreen() (string, int, int, error) {
 	switch runtime.GOOS {
 	case "darwin":
