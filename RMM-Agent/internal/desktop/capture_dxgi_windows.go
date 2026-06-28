@@ -3,11 +3,8 @@
 package desktop
 
 import (
-	"bytes"
-	"encoding/base64"
 	"errors"
 	"image"
-	"image/jpeg"
 	"log"
 
 	"github.com/kirides/go-d3d/d3d11"
@@ -90,8 +87,8 @@ func newDXGICapturer() (*dxgiCapturer, error) {
 		ctx.Release()
 		return nil, err
 	}
-	ddup.DrawPointer = true       // include the mouse cursor in the frame
-	ddup.UpdatePointerInfo = true // track cursor changes
+	// The cursor is shown client-side (the viewer's own pointer over the canvas,
+	// aligned with where input is sent), so we don't composite it here.
 	bounds, err := ddup.GetBounds()
 	if err != nil {
 		ddup.Release()
@@ -117,12 +114,7 @@ func (c *dxgiCapturer) frame() (string, int, int, error) {
 		return "", 0, 0, err
 	}
 
-	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, c.img, &jpeg.Options{Quality: 40}); err != nil {
-		return "", 0, 0, err
-	}
-	b := c.img.Bounds()
-	return base64.StdEncoding.EncodeToString(buf.Bytes()), b.Dx(), b.Dy(), nil
+	return encodeRGBA(c.img)
 }
 
 func (c *dxgiCapturer) close() {

@@ -144,9 +144,51 @@ func captureScreen() (string, int, int, error) {
 		img.Pix[i+3] = 255
 	}
 
+	return encodeRGBA(img)
+}
+
+// maxCaptureWidth caps the streamed frame width. High-res screens (e.g.
+// 2880px) produce huge JPEGs that saturate the link and make remote desktop
+// laggy; downscaling to this keeps the stream responsive.
+const maxCaptureWidth = 1366
+
+// encodeRGBA downscales (if needed) then JPEG-encodes a frame to base64, also
+// returning the encoded dimensions so the client maps input coordinates to the
+// scaled image.
+func encodeRGBA(src *image.RGBA) (string, int, int, error) {
+	img := downscaleRGBA(src, maxCaptureWidth)
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 40}); err != nil {
 		return "", 0, 0, err
 	}
-	return base64.StdEncoding.EncodeToString(buf.Bytes()), w, h, nil
+	b := img.Bounds()
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), b.Dx(), b.Dy(), nil
+}
+
+// downscaleRGBA nearest-neighbour scales src down so its width is at most maxW
+// (cheap — the goal is to reduce load, not add it). Returns src unchanged if it
+// already fits.
+func downscaleRGBA(src *image.RGBA, maxW int) *image.RGBA {
+	w := src.Rect.Dx()
+	h := src.Rect.Dy()
+	if maxW <= 0 || w <= maxW {
+		return src
+	}
+	nw := maxW
+	nh := h * maxW / w
+	if nh < 1 {
+		nh = 1
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, nw, nh))
+	for y := 0; y < nh; y++ {
+		sy := y * h / nh
+		rowStart := src.PixOffset(src.Rect.Min.X, src.Rect.Min.Y+sy)
+		srow := src.Pix[rowStart:]
+		drow := dst.Pix[y*dst.Stride:]
+		for x := 0; x < nw; x++ {
+			si := (x * w / nw) * 4
+			copy(drow[x*4:x*4+4], srow[si:si+4])
+		}
+	}
+	return dst
 }
