@@ -52,7 +52,7 @@ type screenCapturer interface {
 }
 
 func captureFrames(stop <-chan struct{}, onFrame func(b64 string, w, h int)) {
-	bindCaptureThread() // attach this capture thread to the visible desktop (Windows)
+	lockToInputDesktop() // attach this capture thread to the visible desktop (Windows)
 	cap := newCapturer()
 	defer cap.close()
 	ticker := time.NewTicker(frameInterval)
@@ -111,6 +111,12 @@ func RunHelper(addr, token string) error {
 		encMu.Unlock()
 	})
 	defer close(stop)
+
+	// Bind this input-handling goroutine to the visible desktop as well. Without
+	// it, Go may schedule this goroutine onto OS threads not attached to the
+	// input desktop, so SetCursorPos/keybd_event intermittently no-op — the
+	// "sometimes input works, sometimes it doesn't" symptom.
+	lockToInputDesktop()
 
 	for {
 		var msg wsconn.Msg

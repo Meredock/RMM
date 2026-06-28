@@ -61,14 +61,13 @@ func setDPIAware() {
 
 const genericAll = 0x10000000
 
-// bindCaptureThread locks the calling goroutine to its OS thread and attaches
-// that thread to the active input desktop. The helper's capture runs on a
-// goroutine whose OS thread may default to a different desktop than the
-// process's startup desktop; without this, GDI capture returns a black frame
-// even though input (on the main thread) reaches the real desktop. The lock is
-// intentionally never released so the thread stays bound for the goroutine's
-// life.
-func bindCaptureThread() {
+// lockToInputDesktop locks the calling goroutine to its OS thread and attaches
+// that thread to the active input desktop. Go schedules goroutines across OS
+// threads that may not be attached to the input desktop; binding is required for
+// both screen capture (else GDI returns a black frame) and input injection (else
+// SetCursorPos/keybd_event silently no-op). The lock is intentionally never
+// released so the thread stays bound for the goroutine's life.
+func lockToInputDesktop() {
 	runtime.LockOSThread()
 	if h, _, _ := procOpenInputDesktop.Call(0, 0, genericAll); h != 0 {
 		procSetThreadDesktop.Call(h)
