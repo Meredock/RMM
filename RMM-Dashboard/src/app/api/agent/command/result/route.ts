@@ -79,12 +79,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Store inventory / Windows-update reports collected from the agent.
+  // Store inventory / Windows-update / app-export reports collected from the agent.
   const cmdName = command.command.trim();
-  if (!failed && output && (cmdName === "inventory" || cmdName === "winupdates")) {
+  if (!failed && output && (cmdName === "inventory" || cmdName === "winupdates" || cmdName === "appexport")) {
     try {
       const data = JSON.parse(output);
-      const kind = cmdName === "inventory" ? "software" : "updates";
+      const kind = cmdName === "inventory" ? "software" : cmdName === "winupdates" ? "updates" : "apps";
       await prisma.deviceReport.upsert({
         where: { deviceId_kind: { deviceId: device.id, kind } },
         create: { deviceId: device.id, kind, data },
