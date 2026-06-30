@@ -11,9 +11,17 @@ import (
 // setDPIAware is a no-op off Windows; X11/Quartz capture reports real pixels.
 func setDPIAware() {}
 
-// bindCaptureThread is a no-op off Windows; there is no desktop/winstation
+// lockToInputDesktop is a no-op off Windows; there is no desktop/winstation
 // isolation to bridge.
-func bindCaptureThread() {}
+func lockToInputDesktop() {}
+
+// newCapturer off Windows just wraps the per-frame screenshot helper.
+func newCapturer() screenCapturer { return shellCapturer{} }
+
+type shellCapturer struct{}
+
+func (shellCapturer) frame() (string, int, int, error) { return captureScreen() }
+func (shellCapturer) close()                           {}
 
 func captureScreen() (string, int, int, error) {
 	switch runtime.GOOS {

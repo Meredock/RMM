@@ -44,8 +44,17 @@ func runInProcess(sessionId string, send func(wsconn.Msg), recv <-chan wsconn.Ms
 
 // captureFrames grabs the screen at the target frame rate, handing each encoded
 // frame to onFrame until stop is closed.
+// screenCapturer produces encoded frames. Implementations are platform-specific
+// (DXGI/GDI on Windows; screenshot tools elsewhere) and created by newCapturer.
+type screenCapturer interface {
+	frame() (b64 string, w, h int, err error)
+	close()
+}
+
 func captureFrames(stop <-chan struct{}, onFrame func(b64 string, w, h int)) {
-	bindCaptureThread() // attach this capture thread to the visible desktop (Windows)
+	lockToInputDesktop() // attach this capture thread to the visible desktop (Windows)
+	cap := newCapturer()
+	defer cap.close()
 	ticker := time.NewTicker(frameInterval)
 	defer ticker.Stop()
 	for {
@@ -53,9 +62,9 @@ func captureFrames(stop <-chan struct{}, onFrame func(b64 string, w, h int)) {
 		case <-stop:
 			return
 		case <-ticker.C:
-			b64, w, h, err := captureScreen()
+			b64, w, h, err := cap.frame()
 			if err != nil {
-				log.Printf("[desktop] capture error: %v", err)
+				log.Printf("[desktop] capture: %v", err)
 				continue
 			}
 			onFrame(b64, w, h)
@@ -102,6 +111,12 @@ func RunHelper(addr, token string) error {
 		encMu.Unlock()
 	})
 	defer close(stop)
+
+	// Bind this input-handling goroutine to the visible desktop as well. Without
+	// it, Go may schedule this goroutine onto OS threads not attached to the
+	// input desktop, so SetCursorPos/keybd_event intermittently no-op — the
+	// "sometimes input works, sometimes it doesn't" symptom.
+	lockToInputDesktop()
 
 	for {
 		var msg wsconn.Msg

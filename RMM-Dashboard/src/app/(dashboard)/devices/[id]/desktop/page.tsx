@@ -188,7 +188,7 @@ export default function DesktopPage() {
         <canvas
           ref={canvasRef}
           className="max-w-full max-h-full object-contain"
-          style={{ cursor: inputEnabled ? "none" : "default", display: status === "ready" ? "block" : "none" }}
+          style={{ cursor: "default", display: status === "ready" ? "block" : "none" }}
           onMouseMove={handleMouseMove}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}

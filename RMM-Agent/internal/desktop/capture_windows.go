@@ -61,14 +61,13 @@ func setDPIAware() {
 
 const genericAll = 0x10000000
 
-// bindCaptureThread locks the calling goroutine to its OS thread and attaches
-// that thread to the active input desktop. The helper's capture runs on a
-// goroutine whose OS thread may default to a different desktop than the
-// process's startup desktop; without this, GDI capture returns a black frame
-// even though input (on the main thread) reaches the real desktop. The lock is
-// intentionally never released so the thread stays bound for the goroutine's
-// life.
-func bindCaptureThread() {
+// lockToInputDesktop locks the calling goroutine to its OS thread and attaches
+// that thread to the active input desktop. Go schedules goroutines across OS
+// threads that may not be attached to the input desktop; binding is required for
+// both screen capture (else GDI returns a black frame) and input injection (else
+// SetCursorPos/keybd_event silently no-op). The lock is intentionally never
+// released so the thread stays bound for the goroutine's life.
+func lockToInputDesktop() {
 	runtime.LockOSThread()
 	if h, _, _ := procOpenInputDesktop.Call(0, 0, genericAll); h != 0 {
 		procSetThreadDesktop.Call(h)
@@ -144,9 +143,51 @@ func captureScreen() (string, int, int, error) {
 		img.Pix[i+3] = 255
 	}
 
+	return encodeRGBA(img)
+}
+
+// maxCaptureWidth caps the streamed frame width. High-res screens (e.g.
+// 2880px) produce huge JPEGs that saturate the link and make remote desktop
+// laggy; downscaling to this keeps the stream responsive.
+const maxCaptureWidth = 1366
+
+// encodeRGBA downscales (if needed) then JPEG-encodes a frame to base64, also
+// returning the encoded dimensions so the client maps input coordinates to the
+// scaled image.
+func encodeRGBA(src *image.RGBA) (string, int, int, error) {
+	img := downscaleRGBA(src, maxCaptureWidth)
 	var buf bytes.Buffer
 	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 40}); err != nil {
 		return "", 0, 0, err
 	}
-	return base64.StdEncoding.EncodeToString(buf.Bytes()), w, h, nil
+	b := img.Bounds()
+	return base64.StdEncoding.EncodeToString(buf.Bytes()), b.Dx(), b.Dy(), nil
+}
+
+// downscaleRGBA nearest-neighbour scales src down so its width is at most maxW
+// (cheap — the goal is to reduce load, not add it). Returns src unchanged if it
+// already fits.
+func downscaleRGBA(src *image.RGBA, maxW int) *image.RGBA {
+	w := src.Rect.Dx()
+	h := src.Rect.Dy()
+	if maxW <= 0 || w <= maxW {
+		return src
+	}
+	nw := maxW
+	nh := h * maxW / w
+	if nh < 1 {
+		nh = 1
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, nw, nh))
+	for y := 0; y < nh; y++ {
+		sy := y * h / nh
+		rowStart := src.PixOffset(src.Rect.Min.X, src.Rect.Min.Y+sy)
+		srow := src.Pix[rowStart:]
+		drow := dst.Pix[y*dst.Stride:]
+		for x := 0; x < nw; x++ {
+			si := (x * w / nw) * 4
+			copy(drow[x*4:x*4+4], srow[si:si+4])
+		}
+	}
+	return dst
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/meredock/rmm-agent/internal/script"
 	"github.com/meredock/rmm-agent/internal/selfupdate"
 	"github.com/meredock/rmm-agent/internal/sysinfo"
+	"github.com/meredock/rmm-agent/internal/winget"
 )
 
 const timeout = 60 * time.Second
@@ -93,6 +94,26 @@ func Run(command string) Result {
 		return Result{Output: output, ExitCode: exit, Success: err == nil}
 	}
 
+	if strings.TrimSpace(command) == "appexport" {
+		output, err := winget.Export()
+		if err != nil {
+			return Result{Output: output + "\n" + err.Error(), ExitCode: 1, Success: false}
+		}
+		return Result{Output: output, ExitCode: 0, Success: true}
+	}
+
+	if payload, ok := appimportArg(command); ok {
+		manifest, derr := base64.StdEncoding.DecodeString(payload)
+		if derr != nil {
+			return Result{Output: "invalid manifest encoding", ExitCode: 1, Success: false}
+		}
+		output, err := winget.Import(string(manifest))
+		if err != nil {
+			return Result{Output: output + "\n" + err.Error(), ExitCode: 1, Success: false}
+		}
+		return Result{Output: output, ExitCode: 0, Success: true}
+	}
+
 	switch strings.TrimSpace(command) {
 	case "update-agent":
 		if err := selfupdate.CheckNow(); err != nil {
@@ -163,6 +184,16 @@ func avscanArg(command string) (string, bool) {
 	}
 	if strings.HasPrefix(command, "avscan ") {
 		return strings.TrimSpace(strings.TrimPrefix(command, "avscan ")), true
+	}
+	return "", false
+}
+
+// appimportArg recognises "appimport <base64-manifest>" commands.
+func appimportArg(command string) (string, bool) {
+	command = strings.TrimSpace(command)
+	if strings.HasPrefix(command, "appimport ") {
+		payload := strings.TrimSpace(strings.TrimPrefix(command, "appimport "))
+		return payload, payload != ""
 	}
 	return "", false
 }
