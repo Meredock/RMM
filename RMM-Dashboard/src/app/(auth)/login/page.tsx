@@ -6,7 +6,7 @@ import { Monitor } from "lucide-react";
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/portal";
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
