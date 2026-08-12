@@ -20,6 +20,16 @@ const eslintConfig = [
       ],
     },
   },
+  {
+    // passenger.js is the cPanel/Passenger startup file: a CommonJS shim that
+    // must use require() to register the tsx hook before loading server.ts.
+    // ESM import is hoisted and would run before the hook, so require() is
+    // required here even though it is forbidden across the TS codebase.
+    files: ["passenger.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ];
 
 export default eslintConfig;
