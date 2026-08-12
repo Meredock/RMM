@@ -1,10 +1,33 @@
 # cPanel Deployment
 
+This is an **optional, self-contained path** for running the dashboard on a
+cPanel host (e.g. Synergy Wholesale), the same way the tickets app is hosted.
+It does not replace or affect the existing Render deployment — Render keeps
+starting via `tsx server.ts` (see `render.yaml`), and nothing here changes that.
+Adopt this only when you decide to move; until then it just sits alongside.
+
 This dashboard must run as a Node.js application, not as static hosting. The agent APIs and remote tools use:
 
 - HTTP routes under `/api/agent/*`
 - WebSocket relay routes at `/ws/agent` and `/ws/client`
 - PostgreSQL through Prisma
+
+## Two things to confirm with your host before committing
+
+The tickets app was an easy cPanel target (plain MySQL + short-lived HTTP
+requests). The dashboard has two extra requirements — confirm both with Synergy
+Wholesale before migrating:
+
+1. **PostgreSQL.** Prisma is configured for PostgreSQL, not MySQL. cPanel plans
+   commonly offer MySQL/MariaDB only. If your plan has PostgreSQL (or you can
+   point `DATABASE_URL` at an external/VPS Postgres reachable from the cPanel
+   server), the app runs as-is. If it is MySQL-only, that is a bigger change: the
+   Prisma provider and any Postgres-specific column types would need porting —
+   don't attempt that until you've decided to commit.
+2. **WebSocket upgrades.** Terminal, Files, and Remote Desktop rely on a
+   persistent WebSocket relay. Passenger supports WebSocket passthrough, but some
+   shared plans throttle or drop idle upgrades. Device heartbeats (plain HTTP)
+   work regardless; only the live remote tools depend on WebSockets staying up.
 
 ## Requirements
 
@@ -36,6 +59,7 @@ Keep these files:
 
 - `package.json`
 - `package-lock.json`
+- `passenger.js` (the cPanel/Passenger startup file)
 - `server.ts`
 - `src/`
 - `prisma/`
@@ -48,17 +72,23 @@ Keep these files:
 In cPanel, create a Node.js app with:
 
 - Application root: the uploaded dashboard directory
-- Application startup file: `server.ts`
+- Application startup file: `passenger.js`
 - Application mode: production
 - Node.js version: 20+
 
-If cPanel asks for a startup command, use:
+`passenger.js` is a small shim that registers the `tsx` require-hook and then
+loads `server.ts` (the custom server that runs Next.js plus the WebSocket relay
+and schedulers). Passenger loads a startup *file* directly with Node and cannot
+run `tsx server.ts` or an npm script, so the app must point at `passenger.js`,
+**not** `server.ts` — Node cannot parse TypeScript on its own.
+
+If cPanel asks for a startup command instead of a file, use:
 
 ```sh
 npm run cpanel:start
 ```
 
-If it only runs `npm start`, that is also configured for production.
+which runs `node passenger.js` in production mode.
 
 ## Environment Variables
 
