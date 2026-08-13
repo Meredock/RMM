@@ -5,6 +5,7 @@ import { MetricsChart } from "@/components/MetricsChart";
 import { CommandPanel } from "@/components/CommandPanel";
 import { VirusScanButton } from "@/components/VirusScanButton";
 import { InventoryPanel } from "@/components/InventoryPanel";
+import { PatchPanel } from "@/components/PatchPanel";
 import { DeviceNotes } from "@/components/DeviceNotes";
 import { DeviceActions } from "@/components/DeviceActions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -195,6 +196,7 @@ export default async function DeviceDetailPage({
           <TabsTrigger value="metrics">Metrics</TabsTrigger>
           <TabsTrigger value="commands">Commands</TabsTrigger>
           <TabsTrigger value="inventory">Inventory</TabsTrigger>
+          <TabsTrigger value="patching">Patching</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metrics">
@@ -218,6 +220,14 @@ export default async function DeviceDetailPage({
 
         <TabsContent value="inventory">
           <InventoryPanel deviceId={device.id} isOnline={device.isOnline} />
+        </TabsContent>
+
+        <TabsContent value="patching">
+          <PatchPanel
+            deviceId={device.id}
+            isOnline={device.isOnline}
+            platform={device.platform}
+          />
         </TabsContent>
       </Tabs>
     </div>

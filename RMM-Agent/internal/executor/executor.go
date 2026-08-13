@@ -12,6 +12,7 @@ import (
 	"github.com/meredock/rmm-agent/internal/avscan"
 	"github.com/meredock/rmm-agent/internal/backup"
 	"github.com/meredock/rmm-agent/internal/httpcheck"
+	"github.com/meredock/rmm-agent/internal/patch"
 	"github.com/meredock/rmm-agent/internal/script"
 	"github.com/meredock/rmm-agent/internal/selfupdate"
 	"github.com/meredock/rmm-agent/internal/sysinfo"
@@ -65,6 +66,25 @@ func Run(command string) Result {
 			return Result{Output: err.Error(), ExitCode: 1, Success: false}
 		}
 		// A reachable-or-not result is still a successful check run.
+		return Result{Output: output, ExitCode: 0, Success: true}
+	}
+
+	if strings.TrimSpace(command) == "patchscan" {
+		output, err := patch.Scan()
+		if err != nil {
+			return Result{Output: output + "\n" + err.Error(), ExitCode: 1, Success: false}
+		}
+		return Result{Output: output, ExitCode: 0, Success: true}
+	}
+
+	if payload, ok := patchInstallPayload(command); ok {
+		output, err := patch.Install(payload)
+		if err != nil {
+			if output == "" {
+				output = err.Error()
+			}
+			return Result{Output: output, ExitCode: 1, Success: false}
+		}
 		return Result{Output: output, ExitCode: 0, Success: true}
 	}
 
@@ -193,6 +213,16 @@ func appimportArg(command string) (string, bool) {
 	command = strings.TrimSpace(command)
 	if strings.HasPrefix(command, "appimport ") {
 		payload := strings.TrimSpace(strings.TrimPrefix(command, "appimport "))
+		return payload, payload != ""
+	}
+	return "", false
+}
+
+// patchInstallPayload recognises "patchinstall {json}" commands.
+func patchInstallPayload(command string) (string, bool) {
+	command = strings.TrimSpace(command)
+	if strings.HasPrefix(command, "patchinstall ") {
+		payload := strings.TrimSpace(strings.TrimPrefix(command, "patchinstall "))
 		return payload, payload != ""
 	}
 	return "", false

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { applyCheckResult } from "@/lib/http-monitor";
 import { createAlert } from "@/lib/alerts";
 import { notify } from "@/lib/notify";
+import { ingestPatchScan, applyPatchInstallResult } from "@/lib/patching";
 
 export async function POST(req: NextRequest) {
   const apiKey = req.headers.get("x-api-key");
@@ -90,6 +91,19 @@ export async function POST(req: NextRequest) {
         create: { deviceId: device.id, kind, data },
         update: { data, collectedAt: new Date() },
       });
+    } catch {}
+  }
+
+  // Reconcile patch scans / installs into the patch catalog and statuses.
+  if (cmdName === "patchscan") {
+    if (!failed && output) {
+      try {
+        await ingestPatchScan(device.id, output);
+      } catch {}
+    }
+  } else if (cmdName.startsWith("patchinstall ")) {
+    try {
+      await applyPatchInstallResult(device.id, cmdName, output ?? null, failed);
     } catch {}
   }
 
