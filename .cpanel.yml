@@ -10,9 +10,8 @@
 # so it takes effect once these changes are on that branch.
 deployment:
   tasks:
-    # ===== EDIT THIS: the tickets app's "Application root" from Setup Node.js App
-    - export DEPLOYPATH="$HOME/tickets"
-    # ==========================================================================
+    # The tickets app's "Application root" (from Setup Node.js App).
+    - export DEPLOYPATH="/home/fixsmith/tickets"
     - export SRC="$PWD/Fixsmith-Tickets"
     - /bin/echo "Deploying tickets from $SRC to $DEPLOYPATH"
     - 'test -d "$DEPLOYPATH" || { echo "ERROR: DEPLOYPATH $DEPLOYPATH not found - edit .cpanel.yml"; exit 1; }'
