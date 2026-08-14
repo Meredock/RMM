@@ -1,0 +1,105 @@
+name: Deploy Tickets to cPanel
+
+# Auto-deploys the Fixsmith-Tickets app to cPanel (Synergy Wholesale) whenever
+# its code changes land on main. The build happens here on the runner (so the
+# shared host never has to compile TypeScript), then only the runtime artifacts
+# are shipped over SSH and Passenger is reloaded.
+#
+# Setup (one time) — see docs/CPANEL-TICKETS-DEPLOY.md. Add these repo secrets:
+#   CPANEL_SSH_HOST     server hostname (e.g. your cPanel server's host)
+#   CPANEL_SSH_PORT     SSH port (Synergy Wholesale is often not 22 — check cPanel)
+#   CPANEL_SSH_USER     cPanel username
+#   CPANEL_SSH_KEY      private key whose public half is in cPanel > SSH Access
+#   CPANEL_TICKETS_PATH absolute path to the Node app root (Passenger app dir)
+#
+# The server's .env is never uploaded or deleted, so DB/JWT/SMTP settings stay
+# put across deploys.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Fixsmith-Tickets/**"
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-tickets
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Fixsmith-Tickets
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check deploy secrets are configured
+        id: precheck
+        working-directory: .
+        env:
+          CPANEL_SSH_HOST: ${{ secrets.CPANEL_SSH_HOST }}
+          CPANEL_SSH_USER: ${{ secrets.CPANEL_SSH_USER }}
+          CPANEL_SSH_KEY: ${{ secrets.CPANEL_SSH_KEY }}
+          CPANEL_TICKETS_PATH: ${{ secrets.CPANEL_TICKETS_PATH }}
+        run: |
+          if [ -z "$CPANEL_SSH_HOST" ] || [ -z "$CPANEL_SSH_USER" ] || \
+             [ -z "$CPANEL_SSH_KEY" ] || [ -z "$CPANEL_TICKETS_PATH" ]; then
+            echo "::warning::cPanel deploy secrets are not set — skipping deploy. See docs/CPANEL-TICKETS-DEPLOY.md."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.precheck.outputs.ready == 'true'
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Fixsmith-Tickets/package-lock.json
+
+      - name: Install and build
+        if: steps.precheck.outputs.ready == 'true'
+        run: |
+          npm ci
+          npm run build
+          # Drop dev-only packages so node_modules ships production-only.
+          npm prune --omit=dev
+
+      - name: Ship to cPanel over SSH and reload
+        if: steps.precheck.outputs.ready == 'true'
+        env:
+          SSH_HOST: ${{ secrets.CPANEL_SSH_HOST }}
+          SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
+          SSH_USER: ${{ secrets.CPANEL_SSH_USER }}
+          SSH_KEY: ${{ secrets.CPANEL_SSH_KEY }}
+          DEPLOY_PATH: ${{ secrets.CPANEL_TICKETS_PATH }}
+        run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+
+          # Load the deploy key into a throwaway ssh setup.
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          SSH="ssh -i $HOME/.ssh/deploy_key -p $PORT -o StrictHostKeyChecking=yes"
+          DEST="$SSH_USER@$SSH_HOST:$DEPLOY_PATH"
+
+          # Make sure the app root and its tmp dir exist.
+          $SSH "$SSH_USER@$SSH_HOST" "mkdir -p '$DEPLOY_PATH' '$DEPLOY_PATH/tmp'"
+
+          # Sync runtime artifacts. --delete keeps dist/ and node_modules/ clean
+          # of stale files; .env, tmp/, .htaccess and anything else on the server
+          # are left untouched because we only sync these specific paths.
+          rsync -az --delete -e "$SSH" dist/         "$DEST/dist/"
+          rsync -az --delete -e "$SSH" node_modules/ "$DEST/node_modules/"
+          rsync -az          -e "$SSH" public/       "$DEST/public/"
+          rsync -az          -e "$SSH" migrations/    "$DEST/migrations/"
+          rsync -az          -e "$SSH" package.json package-lock.json "$DEST/"
+
+          # Tell Passenger to reload the app on the next request.
+          $SSH "$SSH_USER@$SSH_HOST" "touch '$DEPLOY_PATH/tmp/restart.txt'"
+          echo "Deployed and reloaded tickets at $DEPLOY_PATH"
