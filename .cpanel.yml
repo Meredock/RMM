@@ -1,0 +1,32 @@
+---
+# cPanel Git Version Control deployment for the Fixsmith Tickets app.
+#
+# Runs when you deploy this repo from cPanel > Git Version Control
+# ("Deploy HEAD Commit"). It builds the TypeScript app on the server, copies the
+# runtime files into the Node.js app directory, installs production dependencies,
+# and reloads Passenger. Your server's .env (DB, JWT, SMTP) is never touched.
+#
+# NOTE: cPanel only runs this from the branch it has checked out (usually main),
+# so it takes effect once these changes are on that branch.
+deployment:
+  tasks:
+    # The tickets app's "Application root" (from Setup Node.js App).
+    - export DEPLOYPATH="/home/fixsmith/tickets"
+    - export SRC="$PWD/Fixsmith-Tickets"
+    - /bin/echo "Deploying tickets from $SRC to $DEPLOYPATH"
+    - 'test -d "$DEPLOYPATH" || { echo "ERROR: DEPLOYPATH $DEPLOYPATH not found - edit .cpanel.yml"; exit 1; }'
+    # Put npm on PATH by activating the app's Node.js virtualenv (auto-detected).
+    - export ACT="$(ls -t $HOME/nodevenv/*/*/bin/activate 2>/dev/null | head -n1)"
+    - 'test -n "$ACT" && . "$ACT" || echo "No nodevenv found; relying on system node"'
+    # Build on the server.
+    - cd "$SRC" && npm install && npm run build
+    # Copy runtime artifacts into the app directory.
+    - /bin/mkdir -p "$DEPLOYPATH/tmp"
+    - rsync -a --delete "$SRC/dist/" "$DEPLOYPATH/dist/"
+    - rsync -a "$SRC/public/" "$DEPLOYPATH/public/"
+    - rsync -a "$SRC/migrations/" "$DEPLOYPATH/migrations/"
+    - /bin/cp "$SRC/package.json" "$SRC/package-lock.json" "$DEPLOYPATH/"
+    # Production dependencies for the running app.
+    - cd "$DEPLOYPATH" && npm install --omit=dev
+    # Tell Passenger to reload on the next request.
+    - /bin/touch "$DEPLOYPATH/tmp/restart.txt"
