@@ -20,6 +20,8 @@ model Device {
   agentVersion String?
   companyId    String?
   notes        String?
+  rebootPending   Boolean   @default(false)
+  lastPatchScanAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -32,6 +34,7 @@ model Device {
   httpMonitors    HttpMonitor[]
   reports         DeviceReport[]
   fields          DeviceField[]
+  patchStatuses   DevicePatchStatus[]
 
   @@index([isOnline])
   @@index([companyId])
@@ -350,4 +353,70 @@ enum BackupRunStatus {
 enum StorageType {
   LOCAL
   S3
+}
+
+// ---------------------------------------------------------------------------
+// Patch management
+// ---------------------------------------------------------------------------
+
+enum PatchSource {
+  WINDOWS_UPDATE
+  WINGET
+}
+
+enum PatchSeverity {
+  CRITICAL
+  IMPORTANT
+  MODERATE
+  LOW
+  UNKNOWN
+}
+
+enum PatchState {
+  MISSING // reported missing by the latest scan
+  INSTALLING // install command dispatched, awaiting result
+  INSTALLED // install reported success (confirmed by a later scan)
+  FAILED // install reported failure (lastError holds detail)
+  REBOOT_PENDING // installed but a reboot is required to complete
+  RESOLVED // no longer reported missing (installed out-of-band or superseded)
+}
+
+// Patch is a catalog entry: one distinct update/package version observed
+// anywhere in the fleet. Device-specific state lives in DevicePatchStatus.
+model Patch {
+  id         String        @id @default(cuid())
+  source     PatchSource
+  externalId String // WUA Identity.UpdateID / winget package id
+  version    String        @default("") // available version (winget); "" for WUA
+  title      String
+  severity   PatchSeverity @default(UNKNOWN)
+  category   String?
+  kb         String?
+  createdAt  DateTime      @default(now())
+
+  statuses DevicePatchStatus[]
+
+  @@unique([source, externalId, version])
+  @@index([source])
+}
+
+// DevicePatchStatus tracks one patch's lifecycle on one device.
+model DevicePatchStatus {
+  id          String     @id @default(cuid())
+  deviceId    String
+  patchId     String
+  state       PatchState @default(MISSING)
+  firstSeenAt DateTime   @default(now())
+  lastSeenAt  DateTime   @default(now())
+  installedAt DateTime?
+  attempts    Int        @default(0)
+  lastError   String?
+  updatedAt   DateTime   @updatedAt
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  patch  Patch  @relation(fields: [patchId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, patchId])
+  @@index([deviceId, state])
+  @@index([state])
 }

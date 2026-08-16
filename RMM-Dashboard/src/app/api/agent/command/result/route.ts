@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { applyCheckResult } from "@/lib/http-monitor";
 import { createAlert } from "@/lib/alerts";
 import { notify } from "@/lib/notify";
+import { ingestPatchScan, applyPatchInstallResult } from "@/lib/patching";
 
 export async function POST(req: NextRequest) {
   const apiKey = req.headers.get("x-api-key");
@@ -79,17 +80,30 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Store inventory / Windows-update reports collected from the agent.
+  // Store inventory / Windows-update / app-export reports collected from the agent.
   const cmdName = command.command.trim();
-  if (!failed && output && (cmdName === "inventory" || cmdName === "winupdates")) {
+  if (!failed && output && (cmdName === "inventory" || cmdName === "winupdates" || cmdName === "appexport")) {
     try {
       const data = JSON.parse(output);
-      const kind = cmdName === "inventory" ? "software" : "updates";
+      const kind = cmdName === "inventory" ? "software" : cmdName === "winupdates" ? "updates" : "apps";
       await prisma.deviceReport.upsert({
         where: { deviceId_kind: { deviceId: device.id, kind } },
         create: { deviceId: device.id, kind, data },
         update: { data, collectedAt: new Date() },
       });
+    } catch {}
+  }
+
+  // Reconcile patch scans / installs into the patch catalog and statuses.
+  if (cmdName === "patchscan") {
+    if (!failed && output) {
+      try {
+        await ingestPatchScan(device.id, output);
+      } catch {}
+    }
+  } else if (cmdName.startsWith("patchinstall ")) {
+    try {
+      await applyPatchInstallResult(device.id, cmdName, output ?? null, failed);
     } catch {}
   }
 

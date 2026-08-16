@@ -12,9 +12,11 @@ import (
 	"github.com/meredock/rmm-agent/internal/avscan"
 	"github.com/meredock/rmm-agent/internal/backup"
 	"github.com/meredock/rmm-agent/internal/httpcheck"
+	"github.com/meredock/rmm-agent/internal/patch"
 	"github.com/meredock/rmm-agent/internal/script"
 	"github.com/meredock/rmm-agent/internal/selfupdate"
 	"github.com/meredock/rmm-agent/internal/sysinfo"
+	"github.com/meredock/rmm-agent/internal/winget"
 )
 
 const timeout = 60 * time.Second
@@ -67,6 +69,25 @@ func Run(command string) Result {
 		return Result{Output: output, ExitCode: 0, Success: true}
 	}
 
+	if strings.TrimSpace(command) == "patchscan" {
+		output, err := patch.Scan()
+		if err != nil {
+			return Result{Output: output + "\n" + err.Error(), ExitCode: 1, Success: false}
+		}
+		return Result{Output: output, ExitCode: 0, Success: true}
+	}
+
+	if payload, ok := patchInstallPayload(command); ok {
+		output, err := patch.Install(payload)
+		if err != nil {
+			if output == "" {
+				output = err.Error()
+			}
+			return Result{Output: output, ExitCode: 1, Success: false}
+		}
+		return Result{Output: output, ExitCode: 0, Success: true}
+	}
+
 	if c := strings.TrimSpace(command); c == "inventory" || c == "winupdates" || c == "installupdates" {
 		var output string
 		var err error
@@ -91,6 +112,26 @@ func Run(command string) Result {
 			exit = 1
 		}
 		return Result{Output: output, ExitCode: exit, Success: err == nil}
+	}
+
+	if strings.TrimSpace(command) == "appexport" {
+		output, err := winget.Export()
+		if err != nil {
+			return Result{Output: output + "\n" + err.Error(), ExitCode: 1, Success: false}
+		}
+		return Result{Output: output, ExitCode: 0, Success: true}
+	}
+
+	if payload, ok := appimportArg(command); ok {
+		manifest, derr := base64.StdEncoding.DecodeString(payload)
+		if derr != nil {
+			return Result{Output: "invalid manifest encoding", ExitCode: 1, Success: false}
+		}
+		output, err := winget.Import(string(manifest))
+		if err != nil {
+			return Result{Output: output + "\n" + err.Error(), ExitCode: 1, Success: false}
+		}
+		return Result{Output: output, ExitCode: 0, Success: true}
 	}
 
 	switch strings.TrimSpace(command) {
@@ -163,6 +204,26 @@ func avscanArg(command string) (string, bool) {
 	}
 	if strings.HasPrefix(command, "avscan ") {
 		return strings.TrimSpace(strings.TrimPrefix(command, "avscan ")), true
+	}
+	return "", false
+}
+
+// appimportArg recognises "appimport <base64-manifest>" commands.
+func appimportArg(command string) (string, bool) {
+	command = strings.TrimSpace(command)
+	if strings.HasPrefix(command, "appimport ") {
+		payload := strings.TrimSpace(strings.TrimPrefix(command, "appimport "))
+		return payload, payload != ""
+	}
+	return "", false
+}
+
+// patchInstallPayload recognises "patchinstall {json}" commands.
+func patchInstallPayload(command string) (string, bool) {
+	command = strings.TrimSpace(command)
+	if strings.HasPrefix(command, "patchinstall ") {
+		payload := strings.TrimSpace(strings.TrimPrefix(command, "patchinstall "))
+		return payload, payload != ""
 	}
 	return "", false
 }

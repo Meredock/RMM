@@ -6,6 +6,7 @@ require (
 	fyne.io/systray v1.12.2
 	github.com/creack/pty v1.1.21
 	github.com/gorilla/websocket v1.5.3
+	github.com/kirides/go-d3d v1.0.1
 	github.com/shirou/gopsutil/v3 v3.24.5
 )
 

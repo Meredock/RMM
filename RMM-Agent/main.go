@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -21,7 +23,37 @@ import (
 	"github.com/meredock/rmm-agent/internal/wsconn"
 )
 
+// logPath returns the agent log file location per OS.
+func logPath() string {
+	if runtime.GOOS == "windows" {
+		dir := os.Getenv("PROGRAMDATA")
+		if dir == "" {
+			dir = `C:\ProgramData`
+		}
+		return filepath.Join(dir, "RMMAgent", "agent.log")
+	}
+	return "/var/log/rmm-agent.log"
+}
+
+// setupLogging tees log output to a file (the service has no console), with a
+// crude size cap so it can't grow without bound. Applies to all modes, including
+// the desktop/tray helper subprocesses, so their logs are captured too.
+func setupLogging() {
+	path := logPath()
+	_ = os.MkdirAll(filepath.Dir(path), 0755)
+	flags := os.O_CREATE | os.O_WRONLY | os.O_APPEND
+	if fi, err := os.Stat(path); err == nil && fi.Size() > 5*1024*1024 {
+		flags = os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+	}
+	f, err := os.OpenFile(path, flags, 0644)
+	if err != nil {
+		return
+	}
+	log.SetOutput(io.MultiWriter(os.Stderr, f))
+}
+
 func main() {
+	setupLogging()
 	dashboardURL := flag.String("url", "", "Dashboard URL")
 	regSecret := flag.String("secret", "", "Registration secret")
 	deviceName := flag.String("name", "", "Device friendly name")
