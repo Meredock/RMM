@@ -7,25 +7,19 @@
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body>
-    <div class="bg-shape bg-shape-a"></div>
-    <div class="bg-shape bg-shape-b"></div>
-
-    <main class="layout">
-      <header class="hero">
-        <p class="eyebrow">Ticketing</p>
-        <h1>Repair Tickets</h1>
-        <p class="subtitle">Create, update, and track tickets. Open any ticket for its own correspondence page.</p>
-      </header>
-
-      <nav class="section-nav panel compact">
-        <a class="nav-chip link-chip" href="/dashboard">Dashboard</a>
-        <a class="nav-chip link-chip" href="/customers">Customers</a>
-        <a class="nav-chip link-chip" href="/inventory">Inventory</a>
-        <a class="nav-chip link-chip" href="/calendar">Calendar</a>
-        <a class="nav-chip link-chip" href="/reports">Reports</a>
-        <a class="nav-chip link-chip" href="/invoices">Invoices</a>
-        <button type="button" id="ticketsRefreshBtn" class="ghost push-right">Refresh</button>
-      </nav>
+    <div class="app">
+      <aside id="appSidebar" class="sidebar"></aside>
+      <main class="content">
+        <header class="hero">
+          <div class="hero-text">
+            <p class="eyebrow">Ticketing</p>
+            <h1>Repair Tickets</h1>
+            <p class="subtitle">Create, update, and track tickets. Open any ticket for its own correspondence page.</p>
+          </div>
+          <div class="hero-actions">
+            <button type="button" id="ticketsRefreshBtn" class="ghost">Refresh</button>
+          </div>
+        </header>
 
       <section class="panel">
         <div class="section-head">
@@ -128,6 +122,8 @@
       </section>
     </main>
 
+    </div>
+    <script src="/assets/sidebar.js"></script>
     <script type="module" src="/assets/tickets.js"></script>
   </body>
 </html>
