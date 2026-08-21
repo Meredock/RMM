@@ -5,6 +5,7 @@ import { RelayServer } from "./src/lib/relay";
 import { startBackupScheduler } from "./src/lib/backup-scheduler";
 import { startHttpMonitorScheduler } from "./src/lib/http-monitor";
 import { startRetention } from "./src/lib/retention";
+import { startTaskScheduler } from "./src/lib/task-scheduler";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = parseInt(process.env.PORT ?? "3000", 10);
@@ -22,6 +23,7 @@ app.prepare().then(() => {
   startBackupScheduler();
   startHttpMonitorScheduler();
   startRetention();
+  startTaskScheduler();
 
   server.listen(port, host, () => {
     console.log(`> Ready on http://${host}:${port}`);
