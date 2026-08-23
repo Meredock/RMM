@@ -32,6 +32,7 @@ model Device {
   httpMonitors    HttpMonitor[]
   reports         DeviceReport[]
   fields          DeviceField[]
+  scheduledTasks  ScheduledTask[]
 
   @@index([isOnline])
   @@index([companyId])
@@ -74,6 +75,8 @@ model Script {
   content     String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  scheduledTasks ScheduledTask[]
 }
 
 // HttpMonitor is an HTTP endpoint health check. With no deviceId it runs from
@@ -127,6 +130,7 @@ model Company {
   devices     Device[]
   credentials Credential[]
   docs        CompanyDoc[]
+  scheduledTasks ScheduledTask[]
 }
 
 // Credential is a vault entry (login/secret) for a customer. The secret is
@@ -350,4 +354,78 @@ enum BackupRunStatus {
 enum StorageType {
   LOCAL
   S3
+}
+
+// ---------------------------------------------------------------------------
+// Scheduling & automation
+// ---------------------------------------------------------------------------
+
+enum ScheduledTaskAction {
+  SCRIPT // run a saved Script (dispatched as `runscript`)
+  COMMAND // run a preset/raw command (inventory, winupdates, patchscan, ...)
+}
+
+enum ScheduledTaskTarget {
+  DEVICE
+  COMPANY
+  ALL
+}
+
+// MaintenanceWindow is a reusable recurring time range (in a named timezone)
+// during which windowed tasks are allowed to run. Same-day windows only for now
+// (startMinute < endMinute); overnight windows are a future enhancement.
+model MaintenanceWindow {
+  id          String   @id @default(cuid())
+  name        String
+  daysOfWeek  Int[] // 0=Sun .. 6=Sat
+  startMinute Int // minutes from midnight, local to `timezone`
+  endMinute   Int // minutes from midnight, local to `timezone`
+  timezone    String   @default("UTC") // IANA tz name
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tasks ScheduledTask[]
+}
+
+// ScheduledTask dispatches a command to a target on a fixed interval, optionally
+// gated to a MaintenanceWindow.
+model ScheduledTask {
+  id              String              @id @default(cuid())
+  name            String
+  action          ScheduledTaskAction
+  scriptId        String? // for action=SCRIPT
+  command         String? // for action=COMMAND
+  target          ScheduledTaskTarget
+  deviceId        String? // for target=DEVICE
+  companyId       String? // for target=COMPANY
+  onlyOnline      Boolean             @default(true)
+  intervalMinutes Int
+  windowId        String? // optional maintenance-window constraint
+  enabled         Boolean             @default(true)
+  lastRunAt       DateTime?
+  nextRunAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  script  Script?            @relation(fields: [scriptId], references: [id], onDelete: SetNull)
+  device  Device?            @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  company Company?           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  window  MaintenanceWindow? @relation(fields: [windowId], references: [id], onDelete: SetNull)
+  runs    ScheduledTaskRun[]
+
+  @@index([enabled, nextRunAt])
+}
+
+// ScheduledTaskRun records each dispatch of a task (for history/audit).
+model ScheduledTaskRun {
+  id           String   @id @default(cuid())
+  taskId       String
+  dispatchedAt DateTime @default(now())
+  deviceCount  Int
+  detail       String?
+
+  task ScheduledTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, dispatchedAt])
 }
