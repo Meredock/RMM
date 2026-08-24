@@ -15,6 +15,7 @@ import {
   FileCode,
   KeyRound,
   Radar,
+  Smartphone,
   LogOut,
   ChevronRight,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/devices", label: "Devices", icon: Server },
+  { href: "/phone", label: "Phone Agent", icon: Smartphone },
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/monitoring", label: "Monitoring", icon: Activity },
   { href: "/scripts", label: "Scripts", icon: FileCode },

@@ -12,6 +12,7 @@ model Device {
   name         String
   hostname     String
   platform     String    @default("unknown")
+  deviceType   String    @default("desktop")
   osVersion    String?
   apiKey       String    @unique @default(cuid())
   isOnline     Boolean   @default(false)
@@ -35,6 +36,7 @@ model Device {
 
   @@index([isOnline])
   @@index([companyId])
+  @@index([deviceType])
 }
 
 // DeviceField is an arbitrary key/value custom field on a device (asset tag,

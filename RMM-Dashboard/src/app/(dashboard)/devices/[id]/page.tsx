@@ -27,6 +27,7 @@ async function getDevice(id: string) {
         orderBy: { createdAt: "desc" },
         take: 50,
       },
+      fields: true,
     },
   });
   return device;
@@ -42,6 +43,9 @@ export default async function DeviceDetailPage({
   if (!device) notFound();
 
   const latest = device.metrics[0];
+  const isMobile = device.deviceType === "phone" || device.deviceType === "tablet";
+  const mobileHealth = new Map(device.fields.map((field) => [field.key, field.value]));
+  const batteryLevel = Number(mobileHealth.get("mobile.batteryLevel"));
   const metricsForChart = [...device.metrics].reverse().map((m) => ({
     timestamp: m.timestamp.toISOString(),
     cpuPercent: m.cpuPercent,
@@ -175,6 +179,10 @@ export default async function DeviceDetailPage({
               { label: "Device ID", value: device.id },
               { label: "IP Address", value: device.ipAddress ?? "Unknown" },
               { label: "Agent Version", value: device.agentVersion ?? "Unknown" },
+              ...(isMobile ? [
+                { label: "Battery", value: Number.isFinite(batteryLevel) ? `${batteryLevel.toFixed(0)}%` : "Unknown" },
+                { label: "Connection", value: mobileHealth.get("mobile.connectionType") ?? "Unknown" },
+              ] : []),
               { label: "Registered", value: format(device.createdAt, "MMM d, yyyy") },
             ].map(({ label, value }) => (
               <div key={label}>

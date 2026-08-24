@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Server, Clock, Cpu, MemoryStick, HardDrive } from "lucide-react";
+import { Server, Smartphone, Clock, Cpu, MemoryStick, HardDrive } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { timeAgo } from "@/lib/utils";
@@ -10,6 +10,7 @@ interface DeviceCardProps {
     name: string;
     hostname: string;
     platform: string;
+    deviceType?: string | null;
     isOnline: boolean;
     lastSeen: string | null;
     ipAddress: string | null;
@@ -49,6 +50,8 @@ function MetricBar({ value, label, icon: Icon }: { value: number; label: string;
 }
 
 export function DeviceCard({ device }: DeviceCardProps) {
+  const DeviceIcon = device.deviceType === "phone" || device.deviceType === "tablet" ? Smartphone : Server;
+
   return (
     <Link href={`/devices/${device.id}`}>
       <Card className="hover:border-primary/50 transition-colors cursor-pointer group">
@@ -57,7 +60,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2 min-w-0">
               <div className="p-1.5 rounded bg-muted shrink-0">
-                <Server className="h-4 w-4 text-muted-foreground" />
+                <DeviceIcon className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="min-w-0">
                 <p className="font-medium text-sm text-foreground truncate group-hover:text-primary transition-colors">

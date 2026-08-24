@@ -1,0 +1,6 @@
+# Expo development server state (local devices, packager metadata)
+.expo/
+
+# JavaScript dependencies and logs
+node_modules/
+npm-debug.log*
