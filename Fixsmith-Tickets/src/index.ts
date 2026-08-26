@@ -1014,7 +1014,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         "",
         note || "Please find attached invoice " + invoiceNo + " for the recent work on your " + ticket.brand + " " + ticket.model + ".",
         "",
-        "Total due: $" + fxMoney(totals.grandTotal),
+        "Total due (inc GST): $" + fxMoney(totals.grandTotal),
         "",
         "Thanks,",
         "Brady",
@@ -1042,12 +1042,17 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
 // --- Invoice email ------------------------------------------------------
 
+const BUSINESS_ABN = trimValue(process.env.BUSINESS_ABN) || "48 598 506 497";
+const GST_RATE = 0.1;
+
 interface InvoiceTotals {
   totalMinutes: number;
   totalHours: number;
   labourRate: number;
   labourCharge: number;
   partsSubtotal: number;
+  subtotal: number;
+  gstAmount: number;
   grandTotal: number;
 }
 
@@ -1084,13 +1089,17 @@ function computeInvoiceTotals(ticket: TicketView, labourRate: number): InvoiceTo
     (sum, part) => sum + Number(part.quantity || 0) * Number(part.unitCost || 0),
     0
   );
+  const subtotal = labourCharge + partsSubtotal;
+  const gstAmount = subtotal * GST_RATE;
   return {
     totalMinutes,
     totalHours,
     labourRate,
     labourCharge,
     partsSubtotal,
-    grandTotal: labourCharge + partsSubtotal,
+    subtotal,
+    gstAmount,
+    grandTotal: subtotal + gstAmount,
   };
 }
 
@@ -1117,10 +1126,11 @@ function buildInvoicePdf(ticket: TicketView, totals: InvoiceTotals): Promise<Buf
 
     const customerName = ticket.customer?.organizationName || "Unknown customer";
 
-    doc.fontSize(20).text("Fixsmith Service Invoice");
+    doc.fontSize(20).text("Tax Invoice");
     doc.moveDown(0.3);
     doc.fontSize(9).fillColor("#555555");
     doc.text("Fixsmith - IT Support & Computer Repairs, Nambour QLD");
+    doc.text("ABN " + BUSINESS_ABN);
     doc.text("brady@fixsmith.com.au   fixsmith.com.au");
     doc.fillColor("#000000");
     doc.moveDown(1);
@@ -1178,11 +1188,14 @@ function buildInvoicePdf(ticket: TicketView, totals: InvoiceTotals): Promise<Buf
     doc.moveDown(0.3);
     doc.fontSize(10);
     doc.text("Total hours: " + totals.totalHours.toFixed(2));
-    doc.text("Labour rate: $" + fxMoney(totals.labourRate) + " per hour");
+    doc.text("Labour rate: $" + fxMoney(totals.labourRate) + " per hour (ex GST)");
     doc.text("Labour charge: $" + fxMoney(totals.labourCharge));
     doc.text("Parts: $" + fxMoney(totals.partsSubtotal));
-    doc.moveDown(0.5);
-    doc.fontSize(14).text("Total due: $" + fxMoney(totals.grandTotal));
+    doc.moveDown(0.3);
+    doc.text("Subtotal (ex GST): $" + fxMoney(totals.subtotal));
+    doc.text("GST (10%): $" + fxMoney(totals.gstAmount));
+    doc.moveDown(0.3);
+    doc.fontSize(14).text("Total due (inc GST): $" + fxMoney(totals.grandTotal));
     doc.moveDown(2);
     doc.fontSize(9).fillColor("#555555");
     doc.text("Thank you for your business. Please reply to brady@fixsmith.com.au with any questions about this invoice.");

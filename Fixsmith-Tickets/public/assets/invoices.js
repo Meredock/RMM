@@ -22,6 +22,8 @@ const els = {
   invoiceTotalHours: document.getElementById("invoiceTotalHours"),
   invoiceLabourCharge: document.getElementById("invoiceLabourCharge"),
   invoicePartsValue: document.getElementById("invoicePartsValue"),
+  invoiceSubtotal: document.getElementById("invoiceSubtotal"),
+  invoiceGst: document.getElementById("invoiceGst"),
   invoiceGrandTotal: document.getElementById("invoiceGrandTotal"),
 };
 
@@ -171,7 +173,9 @@ function renderInvoice() {
   const { partsSubtotal } = renderPartsRows(ticket);
   const totalHours = totalMinutes / 60;
   const labourCharge = totalHours * labourRate;
-  const grandTotal = labourCharge + partsSubtotal;
+  const subtotal = labourCharge + partsSubtotal;
+  const gstAmount = subtotal * 0.1;
+  const grandTotal = subtotal + gstAmount;
 
   els.invoiceNumber.textContent = `Invoice #: INV-${ticket.id.slice(0, 8).toUpperCase()}`;
   els.invoiceIssuedAt.textContent = `Issued: ${new Date().toLocaleString()}`;
@@ -190,6 +194,8 @@ function renderInvoice() {
   els.invoiceTotalHours.textContent = totalHours.toFixed(2);
   els.invoiceLabourCharge.textContent = money(labourCharge);
   els.invoicePartsValue.textContent = money(partsSubtotal);
+  els.invoiceSubtotal.textContent = money(subtotal);
+  els.invoiceGst.textContent = money(gstAmount);
   els.invoiceGrandTotal.textContent = money(grandTotal);
 
   setMessage("Invoice generated.", "success");
