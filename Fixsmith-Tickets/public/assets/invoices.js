@@ -6,6 +6,8 @@ const els = {
   addPartBtn: document.getElementById("invoiceAddPartBtn"),
   generateBtn: document.getElementById("invoiceGenerateBtn"),
   printBtn: document.getElementById("invoicePrintBtn"),
+  emailBtn: document.getElementById("invoiceEmailBtn"),
+  emailTo: document.getElementById("invoiceEmailTo"),
   message: document.getElementById("invoiceMessage"),
   invoiceNumber: document.getElementById("invoiceNumber"),
   invoiceIssuedAt: document.getElementById("invoiceIssuedAt"),
@@ -176,6 +178,9 @@ function renderInvoice() {
 
   els.invoiceTicketId.textContent = ticket.id.slice(0, 8).toUpperCase();
   els.invoiceCustomer.textContent = ticket.customer?.organizationName || "Unknown customer";
+  if (els.emailTo && !els.emailTo.dataset.touched) {
+    els.emailTo.value = ticket.correspondenceEmail || ticket.customer?.email || "";
+  }
   els.invoiceStatus.textContent = ticket.status;
 
   els.invoiceDevice.innerHTML = `<strong>Device:</strong> ${escapeHtml(ticket.brand)} ${escapeHtml(ticket.model)} (${escapeHtml(ticket.deviceType)})`;
@@ -261,6 +266,41 @@ els.addPartBtn.addEventListener("click", () => {
 });
 els.printBtn.addEventListener("click", () => {
   window.print();
+});
+
+async function sendInvoiceEmail() {
+  const ticket = selectedTicket();
+  if (!ticket) {
+    setMessage("Select a ticket first.", "error");
+    return;
+  }
+
+  const to = (els.emailTo.value || "").trim();
+  const labourRate = Number(els.labourRate.value || 0);
+
+  els.emailBtn.disabled = true;
+  setMessage("Sending invoice...");
+
+  try {
+    const result = await fetchJson(`/api/tickets/${ticket.id}/invoice-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, labourRate }),
+    });
+    setMessage(`Invoice ${result.invoiceNumber} emailed to ${result.to} (total $${result.total}).`, "success");
+  } catch (error) {
+    setMessage(error.message, "error");
+  } finally {
+    els.emailBtn.disabled = false;
+  }
+}
+
+els.emailBtn.addEventListener("click", () => {
+  void sendInvoiceEmail();
+});
+
+els.emailTo.addEventListener("input", () => {
+  els.emailTo.dataset.touched = "1";
 });
 
 document.addEventListener("click", (event) => {

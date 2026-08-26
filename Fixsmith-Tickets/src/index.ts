@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from "http";
 import { readFile, readFileSync } from "fs";
 import path from "path";
 import nodemailer from "nodemailer";
+import PDFDocument from "pdfkit";
 import mysql from "mysql2/promise";
 import type { RowDataPacket } from "mysql2";
 import { jwtVerify } from "jose";
@@ -161,6 +162,7 @@ const SMTP_SECURE = String(process.env.SMTP_SECURE || "false").toLowerCase() ===
 const SMTP_USER = trimValue(process.env.SMTP_USER);
 const SMTP_PASS = trimValue(process.env.SMTP_PASS);
 const SMTP_FROM = trimValue(process.env.SMTP_FROM) || SMTP_USER;
+const INVOICE_BCC = trimValue(process.env.INVOICE_BCC);
 const isSmtpConfigured = Boolean(SMTP_HOST && SMTP_PORT && SMTP_USER && SMTP_PASS && SMTP_FROM);
 
 const smtpTransporter = isSmtpConfigured
@@ -985,10 +987,210 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
+  // Email invoice as PDF
+  const ticketInvoiceEmailMatch = pathname.match(/^\/api\/tickets\/([a-z0-9-]+)\/invoice-email$/i);
+  if (ticketInvoiceEmailMatch && method === "POST") {
+    if (!pool) { sendJson(res, 503, { error: "Database not configured" }); return; }
+    if (!smtpTransporter) { sendJson(res, 503, { error: "Email delivery is not configured", details: ["Set SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, and SMTP_FROM"] }); return; }
+    try {
+      const ticket = await getTicketById(ticketInvoiceEmailMatch[1]);
+      if (!ticket) { sendJson(res, 404, { error: "Ticket not found" }); return; }
+      const body = await parseJsonBody<Partial<SendInvoiceEmailPayload>>(req);
+      const errors = validateSendInvoiceEmailPayload(body);
+      if (errors.length > 0) { sendJson(res, 400, { error: "Validation failed", details: errors }); return; }
+      const view = await withCustomer(ticket);
+      const to = trimValue(body.to) || ticket.correspondenceEmail || view.customer?.email || "";
+      if (!to || !/^\S+@\S+\.\S+$/.test(to)) {
+        sendJson(res, 400, { error: "Validation failed", details: ["This ticket has no valid recipient email address"] });
+        return;
+      }
+      const totals = computeInvoiceTotals(view, Number(body.labourRate));
+      const pdf = await buildInvoicePdf(view, totals);
+      const invoiceNo = invoiceNumberFor(ticket.id);
+      const greetingName = view.customer?.contactName || view.customer?.organizationName || "there";
+      const note = trimValue(body.message);
+      const lines = [
+        "Hi " + greetingName + ",",
+        "",
+        note || "Please find attached invoice " + invoiceNo + " for the recent work on your " + ticket.brand + " " + ticket.model + ".",
+        "",
+        "Total due: $" + fxMoney(totals.grandTotal),
+        "",
+        "Thanks,",
+        "Brady",
+        "Fixsmith - IT Support & Computer Repairs",
+        "brady@fixsmith.com.au | fixsmith.com.au",
+      ];
+      await smtpTransporter.sendMail({
+        from: SMTP_FROM,
+        to,
+        bcc: INVOICE_BCC || undefined,
+        subject: "Invoice " + invoiceNo + " from Fixsmith",
+        text: lines.join("\n"),
+        attachments: [{ filename: invoiceNo + ".pdf", content: pdf, contentType: "application/pdf" }],
+      });
+      sendJson(res, 200, { success: true, to, invoiceNumber: invoiceNo, total: fxMoney(totals.grandTotal) });
+    } catch (error) { sendJson(res, 500, { error: "Invoice email failed: " + (error as Error).message }); }
+    return;
+  }
+
   notFound(res);
 }
 
 // ── Start ─────────────────────────────────────────────────────────────────────
+
+
+// --- Invoice email ------------------------------------------------------
+
+interface InvoiceTotals {
+  totalMinutes: number;
+  totalHours: number;
+  labourRate: number;
+  labourCharge: number;
+  partsSubtotal: number;
+  grandTotal: number;
+}
+
+interface SendInvoiceEmailPayload {
+  to: string;
+  labourRate: number;
+  message: string;
+}
+
+function fxMoney(value: unknown): string {
+  return Number(value || 0).toFixed(2);
+}
+
+function fxDateTime(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return String(value || "");
+  }
+  return parsed.toLocaleString("en-AU", { timeZone: "Australia/Brisbane" });
+}
+
+function invoiceNumberFor(ticketId: string): string {
+  return "INV-" + ticketId.slice(0, 8).toUpperCase();
+}
+
+function computeInvoiceTotals(ticket: TicketView, labourRate: number): InvoiceTotals {
+  const totalMinutes = (ticket.labourLogs || []).reduce(
+    (sum, entry) => sum + Number(entry.minutes || 0),
+    0
+  );
+  const totalHours = totalMinutes / 60;
+  const labourCharge = totalHours * labourRate;
+  const partsSubtotal = (ticket.partsUsed || []).reduce(
+    (sum, part) => sum + Number(part.quantity || 0) * Number(part.unitCost || 0),
+    0
+  );
+  return {
+    totalMinutes,
+    totalHours,
+    labourRate,
+    labourCharge,
+    partsSubtotal,
+    grandTotal: labourCharge + partsSubtotal,
+  };
+}
+
+function validateSendInvoiceEmailPayload(payload: Partial<SendInvoiceEmailPayload>): string[] {
+  const errors: string[] = [];
+  const to = trimValue(payload.to);
+  if (to && !/^\S+@\S+\.\S+$/.test(to)) {
+    errors.push("Field 'to' must be a valid email address");
+  }
+  const rate = Number(payload.labourRate);
+  if (!Number.isFinite(rate) || rate < 0) {
+    errors.push("Field 'labourRate' must be a number of 0 or more");
+  }
+  return errors;
+}
+
+function buildInvoicePdf(ticket: TicketView, totals: InvoiceTotals): Promise<Buffer> {
+  return new Promise<Buffer>((resolve, reject) => {
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const chunks: Buffer[] = [];
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const customerName = ticket.customer?.organizationName || "Unknown customer";
+
+    doc.fontSize(20).text("Fixsmith Service Invoice");
+    doc.moveDown(0.3);
+    doc.fontSize(9).fillColor("#555555");
+    doc.text("Fixsmith - IT Support & Computer Repairs, Nambour QLD");
+    doc.text("brady@fixsmith.com.au   fixsmith.com.au");
+    doc.fillColor("#000000");
+    doc.moveDown(1);
+
+    doc.fontSize(10);
+    doc.text("Invoice #: " + invoiceNumberFor(ticket.id));
+    doc.text("Issued: " + fxDateTime(new Date().toISOString()));
+    doc.text("Ticket: " + ticket.id.slice(0, 8).toUpperCase());
+    doc.text("Customer: " + customerName);
+    doc.text("Status: " + ticket.status);
+    doc.moveDown(1);
+
+    doc.fontSize(13).text("Job Details");
+    doc.moveDown(0.3);
+    doc.fontSize(10);
+    doc.text("Device: " + ticket.brand + " " + ticket.model + " (" + ticket.deviceType + ")");
+    doc.text("Issue: " + (ticket.issue || "-"));
+    doc.moveDown(0.3);
+    doc.text("Work completed: " + (ticket.workCompletedSummary || "No work summary provided."));
+    doc.moveDown(1);
+    doc.fontSize(13).text("Labour Log");
+    doc.moveDown(0.3);
+    doc.fontSize(10);
+    const labour = ticket.labourLogs || [];
+    if (labour.length === 0) {
+      doc.text("No labour entries logged.");
+    } else {
+      labour.forEach((entry) => {
+        const hours = Number(entry.minutes || 0) / 60;
+        doc.text(
+          fxDateTime(entry.loggedAt) + "    " + Number(entry.minutes || 0) + " min    " +
+            hours.toFixed(2) + " h    " + (entry.note || "")
+        );
+      });
+    }
+    doc.moveDown(1);
+
+    doc.fontSize(13).text("Parts Used");
+    doc.moveDown(0.3);
+    doc.fontSize(10);
+    const parts = ticket.partsUsed || [];
+    if (parts.length === 0) {
+      doc.text("No parts added to this ticket.");
+    } else {
+      parts.forEach((part) => {
+        const lineTotal = Number(part.quantity || 0) * Number(part.unitCost || 0);
+        doc.text(
+          part.name + " (" + part.sku + ")    x" + part.quantity + "    $" +
+            fxMoney(part.unitCost) + " each    $" + fxMoney(lineTotal)
+        );
+      });
+    }
+    doc.moveDown(1);
+    doc.fontSize(13).text("Summary");
+    doc.moveDown(0.3);
+    doc.fontSize(10);
+    doc.text("Total hours: " + totals.totalHours.toFixed(2));
+    doc.text("Labour rate: $" + fxMoney(totals.labourRate) + " per hour");
+    doc.text("Labour charge: $" + fxMoney(totals.labourCharge));
+    doc.text("Parts: $" + fxMoney(totals.partsSubtotal));
+    doc.moveDown(0.5);
+    doc.fontSize(14).text("Total due: $" + fxMoney(totals.grandTotal));
+    doc.moveDown(2);
+    doc.fontSize(9).fillColor("#555555");
+    doc.text("Thank you for your business. Please reply to brady@fixsmith.com.au with any questions about this invoice.");
+    doc.fillColor("#000000");
+
+    doc.end();
+  });
+}
 
 async function start(): Promise<void> {
   try {
