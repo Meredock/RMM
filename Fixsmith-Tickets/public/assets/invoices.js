@@ -6,6 +6,8 @@ const els = {
   addPartBtn: document.getElementById("invoiceAddPartBtn"),
   generateBtn: document.getElementById("invoiceGenerateBtn"),
   printBtn: document.getElementById("invoicePrintBtn"),
+  emailBtn: document.getElementById("invoiceEmailBtn"),
+  emailTo: document.getElementById("invoiceEmailTo"),
   message: document.getElementById("invoiceMessage"),
   invoiceNumber: document.getElementById("invoiceNumber"),
   invoiceIssuedAt: document.getElementById("invoiceIssuedAt"),
@@ -20,6 +22,8 @@ const els = {
   invoiceTotalHours: document.getElementById("invoiceTotalHours"),
   invoiceLabourCharge: document.getElementById("invoiceLabourCharge"),
   invoicePartsValue: document.getElementById("invoicePartsValue"),
+  invoiceSubtotal: document.getElementById("invoiceSubtotal"),
+  invoiceGst: document.getElementById("invoiceGst"),
   invoiceGrandTotal: document.getElementById("invoiceGrandTotal"),
 };
 
@@ -169,13 +173,18 @@ function renderInvoice() {
   const { partsSubtotal } = renderPartsRows(ticket);
   const totalHours = totalMinutes / 60;
   const labourCharge = totalHours * labourRate;
-  const grandTotal = labourCharge + partsSubtotal;
+  const subtotal = labourCharge + partsSubtotal;
+  const gstAmount = subtotal * 0.1;
+  const grandTotal = subtotal + gstAmount;
 
   els.invoiceNumber.textContent = `Invoice #: INV-${ticket.id.slice(0, 8).toUpperCase()}`;
   els.invoiceIssuedAt.textContent = `Issued: ${new Date().toLocaleString()}`;
 
   els.invoiceTicketId.textContent = ticket.id.slice(0, 8).toUpperCase();
   els.invoiceCustomer.textContent = ticket.customer?.organizationName || "Unknown customer";
+  if (els.emailTo && !els.emailTo.dataset.touched) {
+    els.emailTo.value = ticket.correspondenceEmail || ticket.customer?.email || "";
+  }
   els.invoiceStatus.textContent = ticket.status;
 
   els.invoiceDevice.innerHTML = `<strong>Device:</strong> ${escapeHtml(ticket.brand)} ${escapeHtml(ticket.model)} (${escapeHtml(ticket.deviceType)})`;
@@ -185,6 +194,8 @@ function renderInvoice() {
   els.invoiceTotalHours.textContent = totalHours.toFixed(2);
   els.invoiceLabourCharge.textContent = money(labourCharge);
   els.invoicePartsValue.textContent = money(partsSubtotal);
+  els.invoiceSubtotal.textContent = money(subtotal);
+  els.invoiceGst.textContent = money(gstAmount);
   els.invoiceGrandTotal.textContent = money(grandTotal);
 
   setMessage("Invoice generated.", "success");
@@ -261,6 +272,41 @@ els.addPartBtn.addEventListener("click", () => {
 });
 els.printBtn.addEventListener("click", () => {
   window.print();
+});
+
+async function sendInvoiceEmail() {
+  const ticket = selectedTicket();
+  if (!ticket) {
+    setMessage("Select a ticket first.", "error");
+    return;
+  }
+
+  const to = (els.emailTo.value || "").trim();
+  const labourRate = Number(els.labourRate.value || 0);
+
+  els.emailBtn.disabled = true;
+  setMessage("Sending invoice...");
+
+  try {
+    const result = await fetchJson(`/api/tickets/${ticket.id}/invoice-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, labourRate }),
+    });
+    setMessage(`Invoice ${result.invoiceNumber} emailed to ${result.to} (total $${result.total}).`, "success");
+  } catch (error) {
+    setMessage(error.message, "error");
+  } finally {
+    els.emailBtn.disabled = false;
+  }
+}
+
+els.emailBtn.addEventListener("click", () => {
+  void sendInvoiceEmail();
+});
+
+els.emailTo.addEventListener("input", () => {
+  els.emailTo.dataset.touched = "1";
 });
 
 document.addEventListener("click", (event) => {

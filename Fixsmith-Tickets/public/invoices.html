@@ -35,13 +35,18 @@
           <button id="invoiceAddPartBtn" type="button" class="ghost">Add Item To Ticket</button>
           <button id="invoiceGenerateBtn" type="button">Generate Invoice</button>
           <button id="invoicePrintBtn" type="button" class="ghost">Print Invoice</button>
+        <label>Send To
+          <input id="invoiceEmailTo" type="email" placeholder="client@example.com" />
+        </label>
+        <button id="invoiceEmailBtn" type="button">Email Invoice</button>
         </div>
         <p id="invoiceMessage" class="message"></p>
       </section>
 
       <section class="panel invoice-print-area" id="invoiceOutput">
         <div class="invoice-header">
-          <h2>Fixsmith Service Invoice</h2>
+          <h2>Tax Invoice</h2>
+        <p class="muted">Fixsmith &ndash; IT Support &amp; Computer Repairs &middot; ABN 48 598 506 497</p>
           <p id="invoiceNumber">Invoice #: -</p>
           <p id="invoiceIssuedAt">Issued: -</p>
         </div>
@@ -109,7 +114,9 @@
             <li><strong>Total Labour Hours</strong>: <span id="invoiceTotalHours">0.00</span></li>
             <li><strong>Labour Charge</strong>: $<span id="invoiceLabourCharge">0.00</span></li>
             <li><strong>Parts Total</strong>: $<span id="invoicePartsValue">0.00</span></li>
-            <li><strong>Invoice Total</strong>: $<span id="invoiceGrandTotal">0.00</span></li>
+            <li><strong>Subtotal (ex GST)</strong>: $<span id="invoiceSubtotal">0.00</span></li>
+          <li><strong>GST (10%)</strong>: $<span id="invoiceGst">0.00</span></li>
+          <li><strong>Invoice Total (inc GST)</strong>: $<span id="invoiceGrandTotal">0.00</span></li>
           </ul>
         </section>
       </section>
