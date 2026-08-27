@@ -1,0 +1,20 @@
+---
+# cPanel Git Version Control deployment for the Fixsmith Tickets app.
+#
+# The tickets app's Node.js "Application root" IS this repo's Fixsmith-Tickets
+# subfolder (/home/fixsmith/repos/RMM/Fixsmith-Tickets), so deployment builds in
+# place and reloads the app — there is nothing to copy elsewhere. The app reads
+# its config (DATABASE_URL, JWT_SECRET, SMTP_*) from the environment variables
+# set in cPanel's Setup Node.js App, not from a .env file.
+deployment:
+  tasks:
+    - export APP="$HOME/repos/RMM/Fixsmith-Tickets"
+    # Activate the app's Node.js virtualenv so npm/tsc are on PATH.
+    - export ACT="$(ls -t $HOME/nodevenv/repos/RMM/Fixsmith-Tickets/*/bin/activate 2>/dev/null | head -n1)"
+    - 'test -n "$ACT" && . "$ACT" || echo "WARN: nodevenv not found; relying on system node"'
+    # Install including dev deps — the app runs with NODE_ENV=production, which
+    # would otherwise skip devDependencies and leave `tsc` missing — then build.
+    - cd "$APP" && npm install --include=dev && npm run build
+    # Reload the app (LiteSpeed/Passenger redeploys on tmp/restart.txt).
+    - /bin/mkdir -p "$APP/tmp"
+    - /bin/touch "$APP/tmp/restart.txt"

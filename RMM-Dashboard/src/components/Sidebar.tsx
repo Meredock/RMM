@@ -16,6 +16,7 @@ import {
   KeyRound,
   Radar,
   Smartphone,
+  Clock,
   LogOut,
   ChevronRight,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/monitoring", label: "Monitoring", icon: Activity },
   { href: "/scripts", label: "Scripts", icon: FileCode },
+  { href: "/scheduling", label: "Scheduling", icon: Clock },
   { href: "/vault", label: "Vault", icon: KeyRound },
   { href: "/security", label: "Web Security", icon: Radar },
   { href: "/backups", label: "Backup", icon: Archive },
