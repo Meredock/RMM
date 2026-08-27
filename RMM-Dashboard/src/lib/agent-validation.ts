@@ -35,6 +35,22 @@ function optionalMetric(value: unknown, field: string, maximum = 100) {
   return value;
 }
 
+function optionalCoordinate(value: unknown, field: string, minimum: number, maximum: number) {
+  if (value == null) return undefined;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < minimum || value > maximum) {
+    throw new Error(`${field} must be a number between ${minimum} and ${maximum}`);
+  }
+  return value;
+}
+
+function optionalBoolean(value: unknown, field: string) {
+  if (value == null) return undefined;
+  if (typeof value !== "boolean") {
+    throw new Error(`${field} must be a boolean`);
+  }
+  return value;
+}
+
 function resolveProvidedDeviceType(value: unknown, platform?: string): DeviceType {
   const type = optionalString(value, "device type", 20);
   if (type && !ALLOWED_DEVICE_TYPES.has(type.toLowerCase())) {
@@ -65,6 +81,13 @@ export function validateHeartbeatPayload(value: unknown) {
     throw new Error("cpu_percent and ram_percent must be supplied together");
   }
 
+  const locationLat = optionalCoordinate(body.location_lat, "location_lat", -90, 90);
+  const locationLng = optionalCoordinate(body.location_lng, "location_lng", -180, 180);
+  if ((locationLat === undefined) !== (locationLng === undefined)) {
+    throw new Error("location_lat and location_lng must be supplied together");
+  }
+  const locationConsent = optionalBoolean(body.location_consent, "location_consent");
+
   const deviceType = optionalString(body.device_type, "device type", 20);
   if (deviceType && !ALLOWED_DEVICE_TYPES.has(deviceType.toLowerCase())) {
     throw new Error("device type must be desktop, phone, or tablet");
@@ -80,6 +103,9 @@ export function validateHeartbeatPayload(value: unknown) {
     diskTotalGb: optionalMetric(body.disk_total_gb, "disk_total_gb", Number.MAX_SAFE_INTEGER) ?? 0,
     batteryLevel: optionalMetric(body.battery_level, "battery_level"),
     connectionType: optionalString(body.connection_type, "connection type", 50),
+    locationLat,
+    locationLng,
+    locationConsent,
     ipAddress: optionalString(body.ip_address, "IP address", 100),
     osVersion: optionalString(body.os_version, "os version"),
     agentVersion: optionalString(body.agent_version, "agent version", 100),

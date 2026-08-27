@@ -46,6 +46,13 @@ export default async function DeviceDetailPage({
   const isMobile = device.deviceType === "phone" || device.deviceType === "tablet";
   const mobileHealth = new Map(device.fields.map((field) => [field.key, field.value]));
   const batteryLevel = Number(mobileHealth.get("mobile.batteryLevel"));
+  const latitude = Number(mobileHealth.get("mobile.locationLat"));
+  const longitude = Number(mobileHealth.get("mobile.locationLng"));
+  const locationConsent = mobileHealth.get("mobile.locationConsent") === "true";
+  const lastMobileAction = device.commands.find((command) => {
+    const normalized = command.command.trim().toLowerCase();
+    return ["mobile:ping", "mobile:locate", "mobile:lock", "ping", "locate", "lock"].includes(normalized);
+  }) ?? null;
   const metricsForChart = [...device.metrics].reverse().map((m) => ({
     timestamp: m.timestamp.toISOString(),
     cpuPercent: m.cpuPercent,
@@ -117,7 +124,7 @@ export default async function DeviceDetailPage({
               <VirusScanButton deviceId={device.id} />
             </>
           )}
-          <DeviceActions deviceId={device.id} isOnline={device.isOnline} />
+          <DeviceActions deviceId={device.id} isOnline={device.isOnline} deviceType={device.deviceType} />
         </div>
       </div>
 
@@ -168,6 +175,42 @@ export default async function DeviceDetailPage({
         </div>
       )}
 
+      {isMobile && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Phone health</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground text-xs">Battery</p>
+                <p className="font-medium text-foreground mt-1">{Number.isFinite(batteryLevel) ? `${batteryLevel.toFixed(0)}%` : "Unknown"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Connection</p>
+                <p className="font-medium text-foreground mt-1">{mobileHealth.get("mobile.connectionType") ?? "Unknown"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Location consent</p>
+                <p className="font-medium text-foreground mt-1">{locationConsent ? "Granted" : "Not granted"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Last location</p>
+                <p className="font-medium text-foreground mt-1 font-mono text-[11px] break-all">
+                  {Number.isFinite(latitude) && Number.isFinite(longitude) ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : "Not available"}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-xs">Last action</p>
+                <p className="font-medium text-foreground mt-1 text-[11px] break-all">
+                  {lastMobileAction ? `${lastMobileAction.status} · ${lastMobileAction.output?.slice(0, 80) ?? "No result"}` : "No mobile actions yet"}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Device info */}
       <Card>
         <CardHeader className="pb-3">
@@ -182,6 +225,10 @@ export default async function DeviceDetailPage({
               ...(isMobile ? [
                 { label: "Battery", value: Number.isFinite(batteryLevel) ? `${batteryLevel.toFixed(0)}%` : "Unknown" },
                 { label: "Connection", value: mobileHealth.get("mobile.connectionType") ?? "Unknown" },
+                { label: "Location consent", value: locationConsent ? "Granted" : "Not granted" },
+                ...(Number.isFinite(latitude) && Number.isFinite(longitude)
+                  ? [{ label: "Location", value: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` }]
+                  : []),
               ] : []),
               { label: "Registered", value: format(device.createdAt, "MMM d, yyyy") },
             ].map(({ label, value }) => (

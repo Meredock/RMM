@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import * as Device from "expo-device";
+import * as Location from "expo-location";
 import { enableBackgroundHeartbeat } from "./src/background-heartbeat";
 import { loadCredentials, saveCredentials, sendHeartbeat as sendAgentHeartbeat } from "./src/agent";
 import {
@@ -67,11 +68,25 @@ export default function App() {
     }
   }
 
+  async function ensureLocationConsent() {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    if (status === "granted") return true;
+
+    const request = await Location.requestForegroundPermissionsAsync();
+    if (request.status !== "granted") {
+      setStatus("Location access is off; the phone can still register and heartbeat without coordinates.");
+      return false;
+    }
+
+    return true;
+  }
+
   async function registerDevice() {
     setLoading(true);
     setStatus("Registering device...");
 
     try {
+      await ensureLocationConsent();
       const normalizedUrl = dashboardUrl.replace(/\/$/, "");
       const res = await fetch(`${normalizedUrl}/api/agent/register`, {
         method: "POST",

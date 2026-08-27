@@ -117,7 +117,12 @@ export async function POST(req: NextRequest) {
   const mobileHealthFields = [
     payload.batteryLevel === undefined ? null : { key: "mobile.batteryLevel", value: String(payload.batteryLevel) },
     payload.connectionType ? { key: "mobile.connectionType", value: payload.connectionType } : null,
-  ].filter((field): field is { key: string; value: string } => field !== null);
+    payload.locationConsent === undefined ? null : { key: "mobile.locationConsent", value: String(payload.locationConsent) },
+    payload.locationLat === undefined || payload.locationLng === undefined ? null : [
+      { key: "mobile.locationLat", value: String(payload.locationLat) },
+      { key: "mobile.locationLng", value: String(payload.locationLng) },
+    ],
+  ].flat().filter((field): field is { key: string; value: string } => field !== null);
   if (mobileHealthFields.length > 0) {
     await Promise.all(mobileHealthFields.map((field) => prisma.deviceField.upsert({
       where: { deviceId_key: { deviceId: device.id, key: field.key } },
