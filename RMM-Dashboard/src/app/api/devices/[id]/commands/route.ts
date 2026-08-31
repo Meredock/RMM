@@ -33,7 +33,9 @@ export async function POST(
     return NextResponse.json({ error: "command is required" }, { status: 400 });
   }
 
-  const normalizedCommand = command.trim();
+  const trimmedCommand = command.trim();
+  const isMobile = device.deviceType === "phone" || device.deviceType === "tablet";
+  const normalizedCommand = isMobile ? (normalizePhoneActionCommand(trimmedCommand) ?? trimmedCommand) : trimmedCommand;
   if (!isAllowedDeviceCommand(device.deviceType, normalizedCommand)) {
     return NextResponse.json({ error: "This command is not allowed for the device type" }, { status: 403 });
   }
