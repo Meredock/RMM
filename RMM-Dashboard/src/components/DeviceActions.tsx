@@ -3,13 +3,15 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Settings2, ChevronDown, RotateCcw, Power, RefreshCw, ArrowUpCircle, Trash2, Loader2 } from "lucide-react";
+import { isAllowedDeviceCommand } from "@/lib/phone-actions";
 
-export function DeviceActions({ deviceId, isOnline }: { deviceId: string; isOnline: boolean }) {
+export function DeviceActions({ deviceId, isOnline, deviceType }: { deviceId: string; isOnline: boolean; deviceType?: string | null }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const isMobile = deviceType === "phone" || deviceType === "tablet";
 
   useEffect(() => {
     const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -39,6 +41,7 @@ export function DeviceActions({ deviceId, isOnline }: { deviceId: string; isOnli
   };
 
   const item = "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent";
+  const canRunMobileAction = (command: string) => isAllowedDeviceCommand(deviceType, command);
 
   return (
     <div className="relative" ref={ref}>
@@ -68,6 +71,23 @@ export function DeviceActions({ deviceId, isOnline }: { deviceId: string; isOnli
             onClick={() => command("update-agent", "Check for and install a newer agent build now? (Repairs/updates the agent.)", "Update check sent")}>
             <ArrowUpCircle className="h-4 w-4 text-green-400" /> Update / repair agent
           </button>
+          {isMobile && (
+            <>
+              <div className="my-1 h-px bg-border" />
+              <button className={item} disabled={!isOnline || !canRunMobileAction("mobile:ping")}
+                onClick={() => command("mobile:ping", "Send a ping to this phone agent?", "Ping sent")}>
+                <ArrowUpCircle className="h-4 w-4 text-sky-400" /> Ping phone
+              </button>
+              <button className={item} disabled={!isOnline || !canRunMobileAction("mobile:locate")}
+                onClick={() => command("mobile:locate", "Request the current location from this phone? This requires consent.", "Location request sent")}>
+                <Settings2 className="h-4 w-4 text-emerald-400" /> Get location
+              </button>
+              <button className={item} disabled={!isOnline || !canRunMobileAction("mobile:lock")}
+                onClick={() => command("mobile:lock", "Request a lock action for this phone? This is a policy placeholder in the current build.", "Lock request sent")}>
+                <Power className="h-4 w-4 text-orange-400" /> Lock device
+              </button>
+            </>
+          )}
           <div className="my-1 h-px bg-border" />
           <button className={`${item} text-destructive`} onClick={remove}>
             <Trash2 className="h-4 w-4" /> Remove from dashboard

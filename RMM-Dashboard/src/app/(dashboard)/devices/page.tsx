@@ -3,9 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { DeviceCard } from "@/components/DeviceCard";
 import { Monitor, Building2, Server } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
 
-async function getDevices() {
+type DeviceFilter = "all" | "mobile";
+
+async function getDevices(filter: DeviceFilter) {
   return prisma.device.findMany({
+    where: filter === "mobile" ? { deviceType: { in: ["phone", "tablet"] } } : undefined,
     orderBy: [{ isOnline: "desc" }, { name: "asc" }],
     include: {
       company: { select: { id: true, name: true } },
@@ -24,6 +28,7 @@ function DeviceGrid({ devices }: { devices: DeviceWithRelations[] }) {
           key={device.id}
           device={{
             ...device,
+            deviceType: device.deviceType ?? "desktop",
             lastSeen: device.lastSeen?.toISOString() ?? null,
             latestMetric: device.isOnline ? device.metrics[0] ?? null : null,
           }}
@@ -33,8 +38,14 @@ function DeviceGrid({ devices }: { devices: DeviceWithRelations[] }) {
   );
 }
 
-export default async function DevicesPage() {
-  const devices = await getDevices();
+export default async function DevicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
+  const { type } = await searchParams;
+  const filter: DeviceFilter = type === "mobile" ? "mobile" : "all";
+  const devices = await getDevices(filter);
   const online = devices.filter((d) => d.isOnline);
   const offline = devices.filter((d) => !d.isOnline);
 
@@ -62,6 +73,20 @@ export default async function DevicesPage() {
         <p className="text-muted-foreground text-sm mt-1">
           {online.length} online · {offline.length} offline · grouped by company
         </p>
+        <div className="flex gap-2 mt-3">
+          <Link
+            href="/devices"
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${filter === "all" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}
+          >
+            All devices
+          </Link>
+          <Link
+            href="/devices?type=mobile"
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${filter === "mobile" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}
+          >
+            Phones & tablets
+          </Link>
+        </div>
       </div>
 
       {devices.length === 0 ? (
@@ -70,7 +95,9 @@ export default async function DevicesPage() {
             <Monitor className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
             <p className="text-foreground font-medium">No devices registered</p>
             <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
-              Install the agent on a machine and use the registration API to add it here.
+              {filter === "mobile"
+                ? "Register a phone or tablet with the mobile agent to see it here."
+                : "Install the agent on a machine and use the registration API to add it here."}
             </p>
           </CardContent>
         </Card>

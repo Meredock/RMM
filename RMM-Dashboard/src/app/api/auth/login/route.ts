@@ -6,6 +6,8 @@ import { recordAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const { username, password } = await req.json();
+  const secureCookie = process.env.COOKIE_SECURE === "true" || (process.env.NODE_ENV === "production" && req.nextUrl.protocol === "https:");
+
   if (!password) {
     return NextResponse.json({ error: "Password is required" }, { status: 400 });
   }
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
   const response = NextResponse.json({ ok: true, role: user.role });
   response.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: true,
+    secure: secureCookie,
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7,
     path: "/",

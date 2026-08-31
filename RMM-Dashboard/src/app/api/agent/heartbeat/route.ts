@@ -1,25 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createAlert } from "@/lib/alerts";
+import { validateHeartbeatPayload } from "@/lib/agent-validation";
 
-const OFFLINE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
+const DESKTOP_OFFLINE_THRESHOLD_MS = 3 * 60 * 1000;
+// Mobile background fetch is OS-scheduled and may arrive well after its
+// requested interval. A longer window avoids repeatedly flapping phone agents
+// offline while retaining the existing fast desktop-agent detection.
+const MOBILE_OFFLINE_THRESHOLD_MS = 30 * 60 * 1000;
 
 async function markStaleDevicesOffline() {
-  const threshold = new Date(Date.now() - OFFLINE_THRESHOLD_MS);
+  const desktopThreshold = new Date(Date.now() - DESKTOP_OFFLINE_THRESHOLD_MS);
   const stale = await prisma.device.findMany({
-    where: { isOnline: true, lastSeen: { lt: threshold } },
-    select: { id: true, name: true },
+    where: { isOnline: true, lastSeen: { lt: desktopThreshold } },
+    select: { id: true, name: true, deviceType: true, lastSeen: true },
   });
-  if (stale.length === 0) return;
+  const now = Date.now();
+  const staleDevices = stale.filter((device) => {
+    const threshold = device.deviceType === "phone" || device.deviceType === "tablet"
+      ? MOBILE_OFFLINE_THRESHOLD_MS
+      : DESKTOP_OFFLINE_THRESHOLD_MS;
+    return device.lastSeen !== null && device.lastSeen.getTime() < now - threshold;
+  });
+  if (staleDevices.length === 0) return;
 
   await prisma.device.updateMany({
-    where: { id: { in: stale.map((d) => d.id) } },
+    where: { id: { in: staleDevices.map((d) => d.id) } },
     data: { isOnline: false },
   });
 
   // Raise a DEVICE_OFFLINE alert for each newly-offline device that has an
   // enabled rule (global or device-specific) and no open offline alert.
-  for (const d of stale) {
+  for (const d of staleDevices) {
     const rule = await prisma.alertRule.findFirst({
       where: { isEnabled: true, type: "DEVICE_OFFLINE", OR: [{ deviceId: d.id }, { deviceId: null }] },
     });
@@ -82,19 +94,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unknown device" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const {
-    cpu_percent,
-    ram_percent,
-    ram_used_mb,
-    ram_total_mb,
-    disk_percent,
-    disk_used_gb,
-    disk_total_gb,
-    ip_address,
-    os_version,
-    agent_version,
-  } = body;
+  let payload: ReturnType<typeof validateHeartbeatPayload>;
+  try {
+    payload = validateHeartbeatPayload(await req.json());
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid heartbeat request" }, { status: 400 });
+  }
 
   // Update device status
   await prisma.device.update({
@@ -102,36 +107,54 @@ export async function POST(req: NextRequest) {
     data: {
       isOnline: true,
       lastSeen: new Date(),
-      ...(ip_address && { ipAddress: ip_address }),
-      ...(os_version && { osVersion: os_version }),
-      ...(agent_version && { agentVersion: agent_version }),
+      ...(payload.ipAddress && { ipAddress: payload.ipAddress }),
+      ...(payload.osVersion && { osVersion: payload.osVersion }),
+      ...(payload.agentVersion && { agentVersion: payload.agentVersion }),
+      ...(payload.platform && { platform: payload.platform }),
     },
   });
 
+  const mobileHealthFields = [
+    payload.batteryLevel === undefined ? null : { key: "mobile.batteryLevel", value: String(payload.batteryLevel) },
+    payload.connectionType ? { key: "mobile.connectionType", value: payload.connectionType } : null,
+    payload.locationConsent === undefined ? null : { key: "mobile.locationConsent", value: String(payload.locationConsent) },
+    payload.locationLat === undefined || payload.locationLng === undefined ? null : [
+      { key: "mobile.locationLat", value: String(payload.locationLat) },
+      { key: "mobile.locationLng", value: String(payload.locationLng) },
+    ],
+  ].flat().filter((field): field is { key: string; value: string } => field !== null);
+  if (mobileHealthFields.length > 0) {
+    await Promise.all(mobileHealthFields.map((field) => prisma.deviceField.upsert({
+      where: { deviceId_key: { deviceId: device.id, key: field.key } },
+      create: { deviceId: device.id, ...field },
+      update: { value: field.value },
+    })));
+  }
+
   // Store metric
   if (
-    cpu_percent !== undefined &&
-    ram_percent !== undefined
+    payload.cpuPercent !== undefined &&
+    payload.ramPercent !== undefined
   ) {
     await prisma.metric.create({
       data: {
         deviceId: device.id,
-        cpuPercent: Number(cpu_percent),
-        ramPercent: Number(ram_percent),
-        ramUsedMb: Number(ram_used_mb ?? 0),
-        ramTotalMb: Number(ram_total_mb ?? 0),
-        diskPercent: Number(disk_percent ?? 0),
-        diskUsedGb: Number(disk_used_gb ?? 0),
-        diskTotalGb: Number(disk_total_gb ?? 0),
+        cpuPercent: payload.cpuPercent,
+        ramPercent: payload.ramPercent,
+        ramUsedMb: payload.ramUsedMb,
+        ramTotalMb: payload.ramTotalMb,
+        diskPercent: payload.diskPercent,
+        diskUsedGb: payload.diskUsedGb,
+        diskTotalGb: payload.diskTotalGb,
       },
     });
 
     // Check alert rules
     await triggerAlerts(
       device.id,
-      Number(cpu_percent),
-      Number(ram_percent),
-      Number(disk_percent ?? 0)
+      payload.cpuPercent,
+      payload.ramPercent,
+      payload.diskPercent
     );
   }
 

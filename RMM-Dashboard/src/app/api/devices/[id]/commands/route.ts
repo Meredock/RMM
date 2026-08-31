@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auditCurrentUser } from "@/lib/audit";
+import { isAllowedDeviceCommand, normalizePhoneActionCommand } from "@/lib/phone-actions";
 
 export async function GET(
   _req: NextRequest,
@@ -32,11 +33,18 @@ export async function POST(
     return NextResponse.json({ error: "command is required" }, { status: 400 });
   }
 
+  const trimmedCommand = command.trim();
+  const isMobile = device.deviceType === "phone" || device.deviceType === "tablet";
+  const normalizedCommand = isMobile ? (normalizePhoneActionCommand(trimmedCommand) ?? trimmedCommand) : trimmedCommand;
+  if (!isAllowedDeviceCommand(device.deviceType, normalizedCommand)) {
+    return NextResponse.json({ error: "This command is not allowed for the device type" }, { status: 403 });
+  }
+
   const cmd = await prisma.command.create({
-    data: { deviceId: id, command: command.trim() },
+    data: { deviceId: id, command: normalizedCommand },
   });
 
-  const c = command.trim();
+  const c = normalizedCommand;
   const action = c.startsWith("avscan")
     ? "device.scan"
     : c === "installupdates"
