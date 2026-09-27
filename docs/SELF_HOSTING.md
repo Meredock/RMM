@@ -24,7 +24,9 @@ tables) and then launches the server. Caddy obtains a Let's Encrypt certificate
 for `DASHBOARD_DOMAIN` automatically.
 
 Visit `https://<DASHBOARD_DOMAIN>` and log in with `DASHBOARD_PASSWORD` (blank
-username → bootstrap admin). Create real users under **Users**.
+username → bootstrap admin). Create real users under **Users**. The bootstrap
+login stops working as soon as an **admin** account exists (and its session ends
+at that point), so create an admin first and sign in with it.
 
 ### Useful commands
 ```bash

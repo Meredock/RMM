@@ -11,8 +11,14 @@ import { jwtVerify } from "jose";
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 const PUBLIC_DIR = path.resolve(process.cwd(), "public");
 const SESSION_COOKIE = "rmm_session";
+// Must match the dashboard's JWT_SECRET. Never fall back to a known default in
+// production: anyone could then forge a session cookie.
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  console.error("Refusing to start: JWT_SECRET is not set (it must match the dashboard's).");
+  process.exit(1);
+}
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "fallback-dev-secret-change-in-prod"
+  process.env.JWT_SECRET || "fallback-dev-secret-change-in-prod"
 );
 
 type RepairStatus = "new" | "in progress" | "waiting for parts" | "waiting for customer" | "customer has replied";

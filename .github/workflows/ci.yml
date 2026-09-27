@@ -51,3 +51,21 @@ jobs:
         run: npm run lint
       - name: Typecheck
         run: npx tsc --noEmit
+      - name: Test
+        run: npm test
+
+  tickets:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Fixsmith-Tickets
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: Fixsmith-Tickets/package-lock.json
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc -p . --noEmit

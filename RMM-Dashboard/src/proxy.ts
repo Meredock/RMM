@@ -4,7 +4,7 @@ import { getSessionFromRequest } from "@/lib/auth";
 
 const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/agent/"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname, origin } = request.nextUrl;
   const hostname = request.headers.get("host") ?? "";
 
