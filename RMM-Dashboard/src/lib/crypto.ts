@@ -45,3 +45,9 @@ export function generateApiKey(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   return Array.from({ length: 40 }, () => chars[crypto.randomInt(chars.length)]).join("");
 }
+
+// hashApiKey returns the hex SHA-256 of an agent API key. Keys are 40 random
+// characters, so an unsalted fast hash is sufficient (no dictionary to attack).
+export function hashApiKey(apiKey: string): string {
+  return crypto.createHash("sha256").update(apiKey).digest("hex");
+}

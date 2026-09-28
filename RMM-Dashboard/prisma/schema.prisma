@@ -14,7 +14,8 @@ model Device {
   platform     String    @default("unknown")
   deviceType   String    @default("desktop")
   osVersion    String?
-  apiKey       String    @unique @default(cuid())
+  // SHA-256 of the agent API key; the key itself is only ever held by the agent.
+  apiKeyHash   String    @unique
   isOnline     Boolean   @default(false)
   lastSeen     DateTime?
   ipAddress    String?

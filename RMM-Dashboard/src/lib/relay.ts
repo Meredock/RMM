@@ -3,7 +3,7 @@ import { IncomingMessage, Server } from "http";
 import { v4 as uuidv4 } from "uuid";
 import { parse as parseCookies } from "cookie";
 import { SESSION_COOKIE, verifySessionUser } from "./session";
-import { prisma } from "./prisma";
+import { findDeviceByApiKey } from "./device-auth";
 
 export type SessionType = "TERMINAL" | "FILES" | "DESKTOP";
 
@@ -64,7 +64,7 @@ export class RelayServer {
       }
 
       if (msg.type === "AUTH") {
-        const device = await prisma.device.findUnique({ where: { apiKey: String(msg.apiKey) } });
+        const device = await findDeviceByApiKey(String(msg.apiKey));
 
         if (!device) {
           ws.send(JSON.stringify({ type: "AUTH_FAIL", error: "Unknown device" }));
@@ -84,7 +84,9 @@ export class RelayServer {
       // Forward agent message to matching client session
       if (msg.sessionId) {
         const session = this.clientSessions.get(msg.sessionId);
-        if (session?.clientWs.readyState === WebSocket.OPEN) {
+        // Only deliver to sessions opened against this agent's own device, so
+        // one agent can't inject output into another device's session.
+        if (session?.deviceId === deviceId && session.clientWs.readyState === WebSocket.OPEN) {
           session.clientWs.send(raw.toString());
         }
       }

@@ -6,6 +6,7 @@ import { startBackupScheduler } from "./src/lib/backup-scheduler";
 import { startHttpMonitorScheduler } from "./src/lib/http-monitor";
 import { startRetention } from "./src/lib/retention";
 import { startTaskScheduler } from "./src/lib/task-scheduler";
+import { startOfflineMonitor } from "./src/lib/offline-monitor";
 import { jwtSecretProblem } from "./src/lib/secret";
 
 const dev = process.env.NODE_ENV !== "production";
@@ -38,6 +39,7 @@ app.prepare().then(() => {
   startHttpMonitorScheduler();
   startRetention();
   startTaskScheduler();
+  startOfflineMonitor();
 
   server.listen(port, host, () => {
     console.log(`> Ready on http://${host}:${port}`);
