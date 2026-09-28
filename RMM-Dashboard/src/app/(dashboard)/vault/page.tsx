@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "@/components/SessionContext";
 import { KeyRound, Plus, Trash2, Pencil, Eye, EyeOff, Copy, ExternalLink, FileText, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ interface Credential {
 interface Doc { id: string; title: string; content: string }
 
 export default function VaultPage() {
+  const { isAdmin } = useSession();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companyId, setCompanyId] = useState("");
   const [creds, setCreds] = useState<Credential[]>([]);
@@ -155,10 +157,16 @@ export default function VaultPage() {
                     {c.username && <span>{c.username}</span>}
                     <span className="text-foreground">·</span>
                     <span className="text-foreground">{revealed[c.id] !== undefined ? revealed[c.id] : "••••••••"}</span>
-                    <button onClick={() => reveal(c.id)} title="Reveal" className="text-muted-foreground hover:text-foreground">
-                      {revealed[c.id] !== undefined ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                    </button>
-                    <button onClick={() => copySecret(c.id)} title="Copy" className="text-muted-foreground hover:text-foreground"><Copy className="h-3.5 w-3.5" /></button>
+                    {isAdmin ? (
+                      <>
+                        <button onClick={() => reveal(c.id)} title="Reveal" className="text-muted-foreground hover:text-foreground">
+                          {revealed[c.id] !== undefined ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </button>
+                        <button onClick={() => copySecret(c.id)} title="Copy" className="text-muted-foreground hover:text-foreground"><Copy className="h-3.5 w-3.5" /></button>
+                      </>
+                    ) : (
+                      <span className="text-xs font-sans">(admins can reveal)</span>
+                    )}
                   </div>
                   {c.notes && <p className="text-xs text-muted-foreground mt-1">{c.notes}</p>}
                 </div>

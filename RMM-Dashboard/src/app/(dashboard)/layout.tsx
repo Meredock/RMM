@@ -1,4 +1,5 @@
 import { Sidebar } from "@/components/Sidebar";
+import { SessionProvider } from "@/components/SessionContext";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 
@@ -21,7 +22,9 @@ export default async function DashboardLayout({
   return (
     <div className="flex min-h-screen">
       <Sidebar unresolved={unresolved} username={user?.username} role={user?.role} />
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-auto">
+        <SessionProvider value={{ username: user?.username, role: user?.role }}>{children}</SessionProvider>
+      </main>
     </div>
   );
 }

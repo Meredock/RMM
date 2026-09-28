@@ -64,6 +64,8 @@ need a Windows machine running the v1.1.0 agent. Tick each as you go.
 - [ ] Account page → change password → this session stays signed in, other sessions are signed out.
 - [ ] Log in as the **tech** → no Users/Audit links; hitting `/users` or `/api/users` returns "Admin access required".
 - [ ] Log in as the **admin** → Users/Audit visible.
+- [ ] As the **tech**: Vault shows "(admins can reveal)" instead of reveal/copy; Scripts has no New/Run/Edit/Delete; Scheduling has no "Saved script" option and script tasks show "Admin only". Sending a `runscript …` command from a device's Commands tab returns "Admin access required".
+- [ ] As the **admin**: all of the above work.
 
 ## 10. Audit log  (Dashboard, admin)
 - [ ] Audit Log shows entries for logins, commands/scans, user changes, deletes, script runs.
