@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { signSession, SESSION_COOKIE, type SessionUser } from "@/lib/auth";
+import { issueSession, type SessionUser } from "@/lib/auth";
 import { recordAudit } from "@/lib/audit";
 import { createRateLimiter } from "@/lib/rate-limit";
-import { safeEqual } from "@/lib/crypto";
+import { decryptSecret, safeEqual } from "@/lib/crypto";
+import { verifyTotp } from "@/lib/totp";
 
 const WINDOW_MS = 15 * 60 * 1000;
 // Per-IP limit is looser so an office behind one NAT isn't locked out together;
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const username = typeof body.username === "string" ? body.username.trim() : "";
   const password = typeof body.password === "string" ? body.password : "";
-  const secureCookie = process.env.COOKIE_SECURE === "true" || (process.env.NODE_ENV === "production" && req.nextUrl.protocol === "https:");
+  const code = typeof body.code === "string" ? body.code.trim() : "";
 
   if (!password) {
     return NextResponse.json({ error: "Password is required" }, { status: 400 });
@@ -44,6 +45,24 @@ export async function POST(req: NextRequest) {
   if (username) {
     const record = await prisma.user.findUnique({ where: { username } });
     if (record && (await bcrypt.compare(password, record.passwordHash))) {
+      if (record.totpEnabled && record.totpSecretEnc) {
+        // Password is right; the second factor is still needed.
+        if (!code) {
+          return NextResponse.json({ error: "Enter the code from your authenticator app", totpRequired: true }, { status: 401 });
+        }
+        const step = verifyTotp(decryptSecret(record.totpSecretEnc), code, { lastStep: record.totpLastStep });
+        // Claim the step atomically so two logins can't reuse the same code.
+        const claimed = step !== null && (await prisma.user.updateMany({
+          where: { id: record.id, OR: [{ totpLastStep: null }, { totpLastStep: { lt: step } }] },
+          data: { totpLastStep: step },
+        })).count === 1;
+        if (!claimed) {
+          ipLimiter.recordFailure(ipKey);
+          userLimiter.recordFailure(userKey);
+          await recordAudit(username, "auth.login.failed", null, `ip=${clientIp(req)}; reason=totp`);
+          return NextResponse.json({ error: "Invalid authentication code", totpRequired: true }, { status: 401 });
+        }
+      }
       user = { username: record.username, role: record.role };
     }
   }
@@ -67,20 +86,9 @@ export async function POST(req: NextRequest) {
   }
 
   userLimiter.reset(userKey);
-  const token = await signSession(user, { bootstrap });
   await recordAudit(user.username, bootstrap ? "auth.login.bootstrap" : "auth.login", null, null);
 
   const response = NextResponse.json({ ok: true, role: user.role });
-  response.cookies.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: secureCookie,
-    sameSite: "lax",
-    maxAge: bootstrap ? 60 * 60 : 60 * 60 * 24 * 7,
-    path: "/",
-    // Host-only by default; set COOKIE_DOMAIN (e.g. ".example.com") only when you
-    // need the session shared across subdomains.
-    ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
-  });
-
+  await issueSession(req, response, user, { bootstrap });
   return response;
 }

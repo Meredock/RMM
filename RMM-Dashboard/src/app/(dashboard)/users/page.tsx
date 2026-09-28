@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Users, Plus, Trash2, KeyRound, Loader2, X } from "lucide-react";
+import { Users, Plus, Trash2, KeyRound, Loader2, X, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -9,6 +9,7 @@ interface User {
   id: string;
   username: string;
   role: "ADMIN" | "TECH";
+  totpEnabled: boolean;
   createdAt: string;
 }
 
@@ -62,6 +63,17 @@ export default function UsersPage() {
     });
     if (!res.ok) { const e = await res.json().catch(() => ({})); alert(e.error ?? "Failed"); }
   }, []);
+
+  const resetTotp = useCallback(async (u: User) => {
+    if (!confirm(`Turn off two-factor authentication for ${u.username}? They'll be signed out and can set it up again from their Account page.`)) return;
+    const res = await fetch(`/api/users/${u.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resetTotp: true }),
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); alert(e.error ?? "Failed"); }
+    fetchUsers();
+  }, [fetchUsers]);
 
   const remove = useCallback(async (u: User) => {
     if (!confirm(`Delete user ${u.username}?`)) return;
@@ -123,7 +135,13 @@ export default function UsersPage() {
             <div key={u.id} className="bg-card border border-border rounded-lg p-3 flex items-center gap-3">
               <span className="font-medium text-sm">{u.username}</span>
               <Badge variant={u.role === "ADMIN" ? "default" : "secondary"} className="text-xs">{u.role}</Badge>
+              {u.totpEnabled && <Badge variant="outline" className="text-xs">2FA</Badge>}
               <div className="ml-auto flex items-center gap-1">
+                {u.totpEnabled && (
+                  <Button size="icon" variant="ghost" className="h-7 w-7" title="Reset two-factor authentication" onClick={() => resetTotp(u)}>
+                    <ShieldOff className="h-3.5 w-3.5" />
+                  </Button>
+                )}
                 <Button size="icon" variant="ghost" className="h-7 w-7" title="Reset password" onClick={() => resetPassword(u)}>
                   <KeyRound className="h-3.5 w-3.5" />
                 </Button>

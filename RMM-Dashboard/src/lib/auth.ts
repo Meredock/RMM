@@ -1,6 +1,13 @@
 import { cookies } from "next/headers";
-import { NextRequest } from "next/server";
-import { verifySessionUser, SESSION_COOKIE, type SessionUser } from "./session";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  verifySessionUser,
+  signSession,
+  SESSION_COOKIE,
+  SESSION_MAX_AGE_SEC,
+  BOOTSTRAP_MAX_AGE_SEC,
+  type SessionUser,
+} from "./session";
 
 export {
   SESSION_COOKIE,
@@ -27,4 +34,25 @@ export async function getSessionUserFromRequest(req: NextRequest): Promise<Sessi
 // Boolean check used by the proxy (any authenticated user).
 export async function getSessionFromRequest(req: NextRequest): Promise<boolean> {
   return (await getSessionUserFromRequest(req)) !== null;
+}
+
+// issueSession signs a session for user and sets it as the session cookie on res.
+export async function issueSession(
+  req: NextRequest,
+  res: NextResponse,
+  user: SessionUser,
+  opts: { bootstrap?: boolean } = {}
+) {
+  const token = await signSession(user, opts);
+  const secure = process.env.COOKIE_SECURE === "true" || (process.env.NODE_ENV === "production" && req.nextUrl.protocol === "https:");
+  res.cookies.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure,
+    sameSite: "lax",
+    maxAge: opts.bootstrap ? BOOTSTRAP_MAX_AGE_SEC : SESSION_MAX_AGE_SEC,
+    path: "/",
+    // Host-only by default; set COOKIE_DOMAIN (e.g. ".example.com") only when you
+    // need the session shared across subdomains.
+    ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
+  });
 }

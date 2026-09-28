@@ -58,6 +58,10 @@ need a Windows machine running the v1.1.0 agent. Tick each as you go.
 - [ ] After the admin exists, the bootstrap session is signed out and the bootstrap password no longer logs in.
 - [ ] Delete or change the role of a signed-in user → their next request is signed out / uses the new role immediately.
 - [ ] 10 wrong passwords for one username → further attempts return "Too many failed login attempts" for 15 minutes.
+- [ ] Account page → **Two-factor authentication → Set up** → scan the QR code, enter the code → shows **On**; the Users page shows a **2FA** badge.
+- [ ] Sign out and back in → after the password, the login asks for a 6-digit code; a wrong code is rejected, the current code works, and reusing it is rejected.
+- [ ] Admin → Users → **Reset two-factor authentication** on that user → they're signed out and can log in with just the password.
+- [ ] Account page → change password → this session stays signed in, other sessions are signed out.
 - [ ] Log in as the **tech** → no Users/Audit links; hitting `/users` or `/api/users` returns "Admin access required".
 - [ ] Log in as the **admin** → Users/Audit visible.
 

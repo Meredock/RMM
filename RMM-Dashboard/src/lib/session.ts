@@ -6,6 +6,8 @@ import { getJwtSecretKey } from "./secret";
 
 export const SESSION_COOKIE = "rmm_session";
 const SESSION_TTL = "7d";
+export const SESSION_MAX_AGE_SEC = 60 * 60 * 24 * 7;
+export const BOOTSTRAP_MAX_AGE_SEC = 60 * 60;
 // Bootstrap (DASHBOARD_PASSWORD) sessions exist only to create the first admin,
 // so they are short-lived.
 const BOOTSTRAP_TTL = "1h";
@@ -44,7 +46,7 @@ export async function verifySessionToken(token: string): Promise<SessionClaims |
 }
 
 export interface SessionStore {
-  findUser(username: string): Promise<{ role: Role; updatedAt: Date } | null>;
+  findUser(username: string): Promise<{ role: Role; sessionsRevokedAt: Date } | null>;
   countAdmins(): Promise<number>;
 }
 
@@ -59,14 +61,14 @@ export async function resolveSession(claims: SessionClaims, store: SessionStore)
   }
   const user = await store.findUser(claims.username);
   if (!user) return null;
-  // Any change to the user row (password, role) invalidates tokens issued before it.
-  if (claims.issuedAt < Math.floor(user.updatedAt.getTime() / 1000)) return null;
+  // A password or role change revokes tokens issued before it.
+  if (claims.issuedAt < Math.floor(user.sessionsRevokedAt.getTime() / 1000)) return null;
   return { username: claims.username, role: user.role };
 }
 
 const prismaStore: SessionStore = {
   findUser: (username) =>
-    prisma.user.findUnique({ where: { username }, select: { role: true, updatedAt: true } }),
+    prisma.user.findUnique({ where: { username }, select: { role: true, sessionsRevokedAt: true } }),
   countAdmins: () => prisma.user.count({ where: { role: "ADMIN" } }),
 };
 
