@@ -51,3 +51,16 @@ jobs:
         run: npm run lint
       - name: Typecheck
         run: npx tsc --noEmit
+
+  trader:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: RMM-Trader
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pytest httpx
+      - run: python -m pytest -q

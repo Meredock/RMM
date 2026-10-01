@@ -1,0 +1,29 @@
+# Optional: AI trading agent (Base Sepolia testnet) shown under "Trading" in the dashboard.
+#   docker compose -f docker-compose.yml -f docker-compose.trader.yml up -d --build
+# The trader has no published port; only the dashboard can reach it on the compose network.
+services:
+  trader:
+    build:
+      context: ./RMM-Trader
+    restart: unless-stopped
+    environment:
+      TRADER_API_TOKEN: ${TRADER_API_TOKEN:?set TRADER_API_TOKEN}
+      PRIVATE_KEY: ${TRADER_PRIVATE_KEY:?set TRADER_PRIVATE_KEY (testnet wallet)}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: ${TRADER_MODEL:-claude-sonnet-4-5}
+      RPC_URL: ${TRADER_RPC_URL:-https://sepolia.base.org}
+      ALLOW_LIVE_TRADING: ${TRADER_ALLOW_LIVE:-false}
+      HARD_MAX_TRADE_USD: ${TRADER_HARD_MAX_TRADE_USD:-100}
+      HARD_MAX_DAILY_VOLUME_USD: ${TRADER_HARD_MAX_DAILY_VOLUME_USD:-500}
+    volumes:
+      - trader-data:/data
+    expose:
+      - "8000"
+
+  dashboard:
+    environment:
+      TRADER_URL: http://trader:8000
+      TRADER_API_TOKEN: ${TRADER_API_TOKEN}
+
+volumes:
+  trader-data:

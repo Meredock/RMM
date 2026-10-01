@@ -17,6 +17,7 @@ import {
   Radar,
   Smartphone,
   Clock,
+  TrendingUp,
   LogOut,
   ChevronRight,
 } from "lucide-react";
@@ -33,6 +34,7 @@ const navItems = [
   { href: "/vault", label: "Vault", icon: KeyRound },
   { href: "/security", label: "Web Security", icon: Radar },
   { href: "/backups", label: "Backup", icon: Archive },
+  { href: "/trading", label: "Trading", icon: TrendingUp },
   { href: "/alerts", label: "Alerts", icon: Bell },
 ];
 
