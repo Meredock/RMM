@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/guard";
 import { auditCurrentUser } from "@/lib/audit";
 
 // Run a library script on a single device or every online device in a company.
+// Admin only.
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ scriptId: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const { scriptId } = await params;
   const { deviceId, companyId } = await req.json();
 

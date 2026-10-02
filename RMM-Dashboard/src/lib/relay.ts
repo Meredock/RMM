@@ -1,15 +1,9 @@
 import { WebSocket, WebSocketServer } from "ws";
 import { IncomingMessage, Server } from "http";
 import { v4 as uuidv4 } from "uuid";
-import { jwtVerify } from "jose";
 import { parse as parseCookies } from "cookie";
-
-const SESSION_COOKIE = "rmm_session";
-// Read JWT_SECRET lazily so it picks up the value after Next.js has loaded .env
-const getSecret = () =>
-  new TextEncoder().encode(
-    process.env.JWT_SECRET ?? "fallback-dev-secret-change-in-prod"
-  );
+import { SESSION_COOKIE, verifySessionUser } from "./session";
+import { findDeviceByApiKey } from "./device-auth";
 
 export type SessionType = "TERMINAL" | "FILES" | "DESKTOP";
 
@@ -70,11 +64,7 @@ export class RelayServer {
       }
 
       if (msg.type === "AUTH") {
-        const { PrismaClient } = await import("@prisma/client");
-        const db = new PrismaClient();
-        const device = await db.device
-          .findUnique({ where: { apiKey: String(msg.apiKey) } })
-          .finally(() => db.$disconnect());
+        const device = await findDeviceByApiKey(String(msg.apiKey));
 
         if (!device) {
           ws.send(JSON.stringify({ type: "AUTH_FAIL", error: "Unknown device" }));
@@ -94,7 +84,9 @@ export class RelayServer {
       // Forward agent message to matching client session
       if (msg.sessionId) {
         const session = this.clientSessions.get(msg.sessionId);
-        if (session?.clientWs.readyState === WebSocket.OPEN) {
+        // Only deliver to sessions opened against this agent's own device, so
+        // one agent can't inject output into another device's session.
+        if (session?.deviceId === deviceId && session.clientWs.readyState === WebSocket.OPEN) {
           session.clientWs.send(raw.toString());
         }
       }
@@ -127,9 +119,7 @@ export class RelayServer {
       ws.close(4401, "Unauthorized");
       return;
     }
-    try {
-      await jwtVerify(token, getSecret());
-    } catch {
+    if (!(await verifySessionUser(token))) {
       ws.close(4401, "Unauthorized");
       return;
     }

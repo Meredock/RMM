@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/guard";
+import { isScriptCommand } from "@/lib/permissions";
 import { auditCurrentUser } from "@/lib/audit";
 import { isAllowedDeviceCommand, normalizePhoneActionCommand } from "@/lib/phone-actions";
 
@@ -34,6 +36,10 @@ export async function POST(
   }
 
   const trimmedCommand = command.trim();
+  if (isScriptCommand(trimmedCommand)) {
+    const denied = await requireAdmin();
+    if (denied) return denied;
+  }
   const isMobile = device.deviceType === "phone" || device.deviceType === "tablet";
   const normalizedCommand = isMobile ? (normalizePhoneActionCommand(trimmedCommand) ?? trimmedCommand) : trimmedCommand;
   if (!isAllowedDeviceCommand(device.deviceType, normalizedCommand)) {

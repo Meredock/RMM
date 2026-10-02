@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/guard";
+import { taskRunsScript } from "@/lib/permissions";
 import { auditCurrentUser } from "@/lib/audit";
 
 const ACTIONS = ["SCRIPT", "COMMAND"] as const;
@@ -62,6 +64,11 @@ export async function POST(req: NextRequest) {
 
   let scriptId: string | null = null;
   let command: string | null = null;
+  // Tasks that run scripts are admin only.
+  if (taskRunsScript({ action, command: action === "COMMAND" ? String(b.command ?? "") : null })) {
+    const denied = await requireAdmin();
+    if (denied) return denied;
+  }
   if (action === "SCRIPT") {
     scriptId = String(b.scriptId ?? "");
     const script = scriptId ? await prisma.script.findUnique({ where: { id: scriptId } }) : null;

@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/guard";
 import { auditCurrentUser } from "@/lib/audit";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ scriptId: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const { scriptId } = await params;
   const body = await req.json();
   const data: Record<string, unknown> = {};
@@ -23,6 +27,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ scriptId: string }> }
 ) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   const { scriptId } = await params;
   const script = await prisma.script.delete({ where: { id: scriptId } });
   await auditCurrentUser("script.delete", script.name, null);

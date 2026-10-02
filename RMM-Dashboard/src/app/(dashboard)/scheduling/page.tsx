@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "@/components/SessionContext";
+import { taskRunsScript } from "@/lib/permissions";
 import { Clock, Plus, Trash2, Play, Loader2, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +87,7 @@ const browserTz = () => {
 };
 
 export default function SchedulingPage() {
+  const { isAdmin } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [windows, setWindows] = useState<Win[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
@@ -246,7 +249,7 @@ export default function SchedulingPage() {
             <span>What to run</span>
             <select value={action} onChange={(e) => setAction(e.target.value as "SCRIPT" | "COMMAND")} className={`${fieldCls} w-full`}>
               <option value="COMMAND">Command</option>
-              <option value="SCRIPT">Saved script</option>
+              {isAdmin && <option value="SCRIPT">Saved script</option>}
             </select>
           </label>
 
@@ -362,6 +365,9 @@ export default function SchedulingPage() {
                       <div>last {t.lastRun ? `${fmtWhen(t.lastRunAt)} (${t.lastRun.deviceCount})` : "—"}</div>
                     </td>
                     <td className="px-2 py-2">
+                      {!isAdmin && taskRunsScript(t) ? (
+                        <div className="text-xs text-muted-foreground text-right">Admin only</div>
+                      ) : (
                       <div className="flex items-center gap-1 justify-end">
                         <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => runTask(t.id)} title="Run now">
                           <Play className="h-3.5 w-3.5" />
@@ -373,6 +379,7 @@ export default function SchedulingPage() {
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
+                      )}
                     </td>
                   </tr>
                 ))}

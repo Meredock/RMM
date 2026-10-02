@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/guard";
+import { taskRunsScript } from "@/lib/permissions";
 import { auditCurrentUser } from "@/lib/audit";
 
 // PATCH /api/scheduled-tasks/[id] — toggle enabled or edit a few safe fields.
@@ -7,6 +9,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const task = await prisma.scheduledTask.findUnique({ where: { id } });
   if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  // Tasks that run scripts are admin only (enabling one runs the script).
+  if (taskRunsScript(task)) {
+    const denied = await requireAdmin();
+    if (denied) return denied;
+  }
 
   const b = await req.json().catch(() => ({}));
   const data: Record<string, unknown> = {};
@@ -46,6 +53,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const task = await prisma.scheduledTask.findUnique({ where: { id } });
   if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  if (taskRunsScript(task)) {
+    const denied = await requireAdmin();
+    if (denied) return denied;
+  }
 
   await prisma.scheduledTask.delete({ where: { id } });
   await auditCurrentUser("schedule.delete", task.name, null);

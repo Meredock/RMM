@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/guard";
+import { isScriptCommand } from "@/lib/permissions";
 import { auditCurrentUser } from "@/lib/audit";
 
 // Dispatch a command to every online device in a company.
@@ -11,6 +13,10 @@ export async function POST(
   const { command } = await req.json();
   if (!command?.trim()) {
     return NextResponse.json({ error: "command is required" }, { status: 400 });
+  }
+  if (isScriptCommand(command)) {
+    const denied = await requireAdmin();
+    if (denied) return denied;
   }
 
   const company = await prisma.company.findUnique({ where: { id: companyId } });

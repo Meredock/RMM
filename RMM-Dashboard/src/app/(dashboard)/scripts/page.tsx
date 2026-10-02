@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "@/components/SessionContext";
 import { FileCode, Plus, Trash2, Play, Pencil, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ interface Device { id: string; name: string; isOnline: boolean }
 interface Company { id: string; name: string }
 
 export default function ScriptsPage() {
+  const { isAdmin } = useSession();
   const [scripts, setScripts] = useState<Script[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -91,9 +93,12 @@ export default function ScriptsPage() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2"><FileCode className="h-6 w-6 text-primary" /> Scripts</h1>
-          <p className="text-muted-foreground text-sm mt-1">Reusable scripts you can run on a device or a whole company.</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Reusable scripts you can run on a device or a whole company.
+            {!isAdmin && " Only admins can add, edit or run scripts."}
+          </p>
         </div>
-        <Button size="sm" onClick={openCreate} className="gap-1"><Plus className="h-4 w-4" /> New Script</Button>
+        {isAdmin && <Button size="sm" onClick={openCreate} className="gap-1"><Plus className="h-4 w-4" /> New Script</Button>}
       </div>
 
       {showForm && (
@@ -125,7 +130,9 @@ export default function ScriptsPage() {
       {loading ? (
         <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Loading...</div>
       ) : scripts.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">No scripts yet. <button onClick={openCreate} className="text-primary hover:underline">Create one</button></div>
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          No scripts yet.{isAdmin && <> <button onClick={openCreate} className="text-primary hover:underline">Create one</button></>}
+        </div>
       ) : (
         <div className="space-y-2 max-w-3xl">
           {scripts.map((s) => (
@@ -135,11 +142,11 @@ export default function ScriptsPage() {
                 <div className="flex items-center gap-2"><span className="font-medium text-sm">{s.name}</span><Badge variant="secondary" className="text-xs">{s.shell}</Badge></div>
                 {s.description && <div className="text-xs text-muted-foreground truncate">{s.description}</div>}
               </div>
-              <div className="flex items-center gap-1 shrink-0">
+              {isAdmin && <div className="flex items-center gap-1 shrink-0">
                 <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => run(s)}><Play className="h-3.5 w-3.5 text-green-400" /> Run</Button>
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5" /></Button>
                 <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => remove(s)}><Trash2 className="h-3.5 w-3.5" /></Button>
-              </div>
+              </div>}
             </div>
           ))}
         </div>

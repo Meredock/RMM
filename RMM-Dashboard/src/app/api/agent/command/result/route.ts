@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { findDeviceByApiKey } from "@/lib/device-auth";
 import { applyCheckResult } from "@/lib/http-monitor";
 import { createAlert } from "@/lib/alerts";
 import { notify } from "@/lib/notify";
@@ -10,7 +11,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing X-Api-Key" }, { status: 401 });
   }
 
-  const device = await prisma.device.findUnique({ where: { apiKey } });
+  const device = await findDeviceByApiKey(apiKey);
   if (!device) {
     return NextResponse.json({ error: "Unknown device" }, { status: 401 });
   }

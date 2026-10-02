@@ -30,10 +30,3 @@ export function getSeverityColor(severity: string) {
     default: return "secondary";
   }
 }
-
-export function generateApiKey(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  return Array.from({ length: 40 }, () =>
-    chars[Math.floor(Math.random() * chars.length)]
-  ).join("");
-}
