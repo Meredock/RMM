@@ -4,8 +4,10 @@
 # The tickets app's Node.js "Application root" IS this repo's Fixsmith-Tickets
 # subfolder (/home/fixsmith/repos/RMM/Fixsmith-Tickets), so deployment builds in
 # place and reloads the app — there is nothing to copy elsewhere. The app reads
-# its config (DATABASE_URL, JWT_SECRET, SMTP_*) from the environment variables
-# set in cPanel's Setup Node.js App, not from a .env file.
+# its config (DATABASE_URL, JWT_SECRET, DASHBOARD_URL, SMTP_*) from the environment
+# variables set in cPanel's Setup Node.js App, not from a .env file. DASHBOARD_URL
+# (e.g. https://portal.fixsmith.com.au) lets Tickets confirm sessions with the
+# dashboard so revoked logins stop working here too.
 deployment:
   tasks:
     - export APP="$HOME/repos/RMM/Fixsmith-Tickets"

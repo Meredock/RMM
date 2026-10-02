@@ -29,6 +29,9 @@ services:
     environment:
       DATABASE_URL: mysql://tickets:${TICKETS_DB_PASSWORD:-tickets}@tickets-db:3306/tickets
       JWT_SECRET: ${JWT_SECRET}          # MUST match the dashboard's for shared login
+      # Tickets confirms each session with the dashboard so revoked logins stop
+      # working here too. Uses the dashboard container over the compose network.
+      DASHBOARD_URL: ${TICKETS_DASHBOARD_URL:-http://dashboard:3000}
       PORT: "3000"
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}

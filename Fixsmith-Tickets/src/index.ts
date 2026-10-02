@@ -7,6 +7,7 @@ import nodemailer from "nodemailer";
 import mysql from "mysql2/promise";
 import type { RowDataPacket } from "mysql2";
 import { jwtVerify } from "jose";
+import { createSessionChecker } from "./session-check.js";
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 const PUBLIC_DIR = path.resolve(process.cwd(), "public");
@@ -20,6 +21,17 @@ if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "fallback-dev-secret-change-in-prod"
 );
+// Where to confirm sessions with the dashboard, e.g. http://dashboard:3000 in the
+// Docker stack or https://portal.example.com. Without it, a session the dashboard
+// has revoked (deleted user, role or password change) keeps working here until
+// the token expires.
+const DASHBOARD_URL = process.env.DASHBOARD_URL?.trim();
+if (!DASHBOARD_URL) {
+  console.warn("WARNING: DASHBOARD_URL is not set; revoked dashboard sessions will keep working in Tickets until they expire.");
+}
+const isSessionValid = DASHBOARD_URL
+  ? createSessionChecker({ dashboardUrl: DASHBOARD_URL, cookieName: SESSION_COOKIE })
+  : null;
 
 type RepairStatus = "new" | "in progress" | "waiting for parts" | "waiting for customer" | "customer has replied";
 
@@ -253,11 +265,12 @@ async function isAuthenticated(req: IncomingMessage): Promise<boolean> {
   const token = cookies[SESSION_COOKIE];
   if (!token) return false;
   try {
+    // Check the signature locally first so forged tokens never reach the dashboard.
     await jwtVerify(token, JWT_SECRET);
-    return true;
   } catch {
     return false;
   }
+  return isSessionValid ? isSessionValid(token) : true;
 }
 
 async function servePublicFile(res: ServerResponse, requestedPath: string): Promise<boolean> {
