@@ -42,6 +42,18 @@ GUI URLs:
 - `GET|POST /api/inventory`
 - `GET|PUT|DELETE /api/inventory/:id`
 
+## Login
+
+Tickets uses the dashboard's login. Set:
+
+- `JWT_SECRET` to the same value as the dashboard's.
+- `DASHBOARD_URL` to the dashboard's address (e.g. `http://dashboard:3000` in the
+  Docker stack, or `https://portal.fixsmith.com.au`). Tickets asks the dashboard's
+  `/api/auth/session` whether each session is still valid, caching a "yes" for 30
+  seconds, so deleted or demoted users are signed out of Tickets too. If the
+  dashboard can't be reached, logins are refused. Without `DASHBOARD_URL`, only the
+  token's signature is checked and a startup warning is logged.
+
 ## SMTP Email Setup
 
 To send correspondence and invoice emails directly from the ticket detail page, configure these environment variables before running:

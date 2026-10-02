@@ -27,6 +27,10 @@ app.
 - Background jobs run in the same process: backup scheduler, HTTP monitors,
   scheduled tasks, offline detection and data retention.
 - Tickets verifies the dashboard's session cookie, so both apps must share `JWT_SECRET`.
+  It also confirms each session with the dashboard (`DASHBOARD_URL` →
+  `/api/auth/session`, cached for 30 seconds), so a user deleted or demoted in the
+  dashboard loses Tickets access too. If the dashboard is unreachable, Tickets
+  rejects logins rather than trusting them.
 
 ## Running it
 

@@ -175,7 +175,10 @@ that auto-creates its MySQL schema on startup and **reuses the dashboard's
 
 **5a. Set the tickets vars in `.env`** (already added to `.env.docker.example`):
 `TICKETS_DB_PASSWORD`, `TICKETS_DB_ROOT`, and the `SMTP_*` values for ticket
-emails. (`JWT_SECRET` is already shared from the dashboard section.)
+emails. (`JWT_SECRET` is already shared from the dashboard section.) Tickets
+confirms each login with the dashboard container (`DASHBOARD_URL`, defaulting to
+`http://dashboard:3000`), so a user deleted or demoted in the dashboard loses
+Tickets access within 30 seconds.
 
 **5b. Bring it up** alongside the dashboard by adding the third compose file:
 ```bash
